@@ -10,7 +10,6 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f4f4f2;--surface:#fff;--surface-2:#fafaf8;--text:#1a1a18;--text-sec:#666;--text-muted:#999;--border:#e0e0dc;--bs:#c8c8c2;--accent:#2563eb;--c1s:#2196f3;--c1s-bg:rgba(33,150,243,0.12);--c1k:#4caf50;--c1k-bg:rgba(76,175,80,0.12);--c3s:#ff9800;--c3s-bg:rgba(255,152,0,0.12);--c4s:#f44336;--c4s-bg:rgba(244,67,54,0.12);--cmop:#78909c;--cmop-bg:rgba(120,144,156,0.15)}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-html.embedded header{display:none}
 header{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
 header h1{font-size:14px;font-weight:600}
 .mtabs{display:flex;gap:2px;background:var(--surface-2);padding:2px;border-radius:8px}
@@ -150,6 +149,7 @@ header h1{font-family:"Arial Narrow","Roboto Condensed",Inter,sans-serif;font-si
 .zb{border-radius:4px;box-shadow:0 2px 10px #18201810}
 .catalog-cloud{border-radius:8px;box-shadow:0 18px 55px rgba(18,25,18,.16)}
 @media(max-width:1100px){.sidebar{width:290px}.props{width:235px}.toolbar .btn:nth-of-type(n+5){display:none}}
+html.embedded header{display:none}
 </style>
 </head>
 <body>
@@ -2573,19 +2573,6 @@ function catalogMatches(src){
   scored.sort(function(a,b){return b.s-a.s||String(a.a.name).localeCompare(String(b.a.name),"ru");});
   var out=[];for(var j=0;j<scored.length&&j<6;j++)out.push(scored[j].a);return out;
 }
-// Catalog image references are rooted at the GitHub Pages site, including when embedded in an iframe.
-function resolveCatalogPlanImage(path){
-  var raw=String(path||"").trim();
-  if(!raw)return "";
-  if(/^(?:https?:)?\/\//i.test(raw)||/^data:/i.test(raw))return raw;
-  raw=raw.replace(/^\.\//,"").replace(/^\/+/,"");
-  if(!/^catalog\//i.test(raw))raw="catalog/"+raw;
-  var parts=raw.split("/").map(function(p){
-    try{return encodeURIComponent(decodeURIComponent(p));}
-    catch(e){return encodeURIComponent(p);}
-  });
-  return new URL(parts.join("/"),window.location.origin+"/").href;
-}
 function renderCatalogCloud(src,sx,sy){
   var cloud=document.getElementById("catalog-cloud");if(!cloud)return;
   var list=catalogMatches(src),h='<div class="catalog-head"><div><div class="catalog-title">'+escHtml(src.name)+'</div><div class="catalog-sub">Допустимые варианты из каталога по типу, глубине, ширине и стыковке</div></div><div class="catalog-count">'+list.length+' вариантов</div></div>';
@@ -2595,8 +2582,7 @@ function renderCatalogCloud(src,sx,sy){
     h+='<div class="catalog-grid">';
     for(var i=0;i<list.length;i++){
       var a=list[i],meta=(a.area!=null?a.area+' м²':'S уточняется')+(a.depth!=null?' · гл. '+a.depth+' м':'');
-      var imgPath=a.img||"";
-      var imgSrc=resolveCatalogPlanImage(imgPath);
+      var imgSrc=/^https?:\/\//i.test(a.img||"")?a.img:"catalog/"+(a.img||"");
       h+='<div class="catalog-card"><img src="'+escHtml(imgSrc)+'" alt=""><div class="catalog-card-body"><div class="catalog-card-name" title="'+escHtml(a.name)+'">'+escHtml(a.name)+'</div><div class="catalog-card-meta">'+escHtml(meta)+'</div></div></div>';
     }
     h+='</div>';
@@ -2629,7 +2615,7 @@ function updateCatalogHover(sx,sy){
   else{var c=document.getElementById("catalog-cloud");if(c&&c.classList.contains("open")){var left=Math.min(wrap.clientWidth-442,Math.max(12,sx+18));if(sx>wrap.clientWidth*.62)left=Math.max(12,sx-448);c.style.left=left+'px';}}
 }
 function loadApartmentCatalog(){
-  if(window.CATALOG_SOURCE_APTS&&window.CATALOG_SOURCE_APTS.length){CATALOG_APTS=window.CATALOG_SOURCE_APTS;catalogReady=true;if(catalogHoverUid!==null){var hovered=APARTMENTS.find(function(a){return a.uid===catalogHoverUid||a.id===catalogHoverUid;});if(hovered){var c=document.getElementById("catalog-cloud");if(c&&c.classList.contains("open"))renderCatalogCloud(hovered,parseFloat(c.style.left)||20,parseFloat(c.style.top)||20);}}document.body.setAttribute("data-catalog-count",String(CATALOG_APTS.length));document.body.setAttribute("data-catalog-smoke",String(catalogMatches(APARTMENTS[0]).length));catalogGeometrySmoke();return;}
+  if(window.CATALOG_SOURCE_APTS&&window.CATALOG_SOURCE_APTS.length){CATALOG_APTS=window.CATALOG_SOURCE_APTS;catalogReady=true;document.body.setAttribute("data-catalog-count",String(CATALOG_APTS.length));document.body.setAttribute("data-catalog-smoke",String(catalogMatches(APARTMENTS[0]).length));catalogGeometrySmoke();return;}
   var xhr=new XMLHttpRequest();xhr.open("GET","catalog/index.html",true);
   xhr.onreadystatechange=function(){if(xhr.readyState!==4)return;if(xhr.status!==200&&xhr.status!==0)return;var m=xhr.responseText.match(/const\s+APTS\s*=\s*(\[[\s\S]*?\]);\s*const\s+CLASSES/);if(!m)return;try{CATALOG_APTS=JSON.parse(m[1]);catalogReady=true;document.body.setAttribute("data-catalog-count",String(CATALOG_APTS.length));document.body.setAttribute("data-catalog-smoke",String(catalogMatches(APARTMENTS[0]).length));}catch(e){console.warn("Каталог квартир не разобран",e);}};
   try{xhr.send();}catch(e){console.warn("Каталог доступен через локальный HTTP-сервер",e);}
