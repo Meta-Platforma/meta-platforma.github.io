@@ -149,7 +149,13 @@ header h1{font-family:"Arial Narrow","Roboto Condensed",Inter,sans-serif;font-si
 .zb{border-radius:4px;box-shadow:0 2px 10px #18201810}
 .catalog-cloud{border-radius:8px;box-shadow:0 18px 55px rgba(18,25,18,.16)}
 @media(max-width:1100px){.sidebar{width:290px}.props{width:235px}.toolbar .btn:nth-of-type(n+5){display:none}}
-html.embedded header{display:none}
+html.embedded header{display:flex;min-height:48px;padding:6px 12px;gap:12px}
+html.embedded header>h1{display:none}
+html.embedded header .mtabs{display:flex;flex-shrink:0}
+html.embedded header .toolbar{display:flex;flex-wrap:wrap}
+html.embedded header .meta-nav{display:none}
+@media(max-width:1100px){html.embedded header .toolbar .btn:nth-of-type(n+5){display:inline-flex}}
+
 </style>
 </head>
 <body>
