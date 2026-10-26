@@ -2582,7 +2582,8 @@ function renderCatalogCloud(src,sx,sy){
     h+='<div class="catalog-grid">';
     for(var i=0;i<list.length;i++){
       var a=list[i],meta=(a.area!=null?a.area+' м²':'S уточняется')+(a.depth!=null?' · гл. '+a.depth+' м':'');
-      var imgSrc=/^https?:\/\//i.test(a.img||"")?a.img:"catalog/"+(a.img||"");
+      var imgPath=a.img||"";
+      var imgSrc=/^(?:https?:)?\/\//i.test(imgPath)||/^\/?catalog\//i.test(imgPath)?imgPath:"catalog/"+imgPath;
       h+='<div class="catalog-card"><img src="'+escHtml(imgSrc)+'" alt=""><div class="catalog-card-body"><div class="catalog-card-name" title="'+escHtml(a.name)+'">'+escHtml(a.name)+'</div><div class="catalog-card-meta">'+escHtml(meta)+'</div></div></div>';
     }
     h+='</div>';
