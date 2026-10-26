@@ -4109,6 +4109,7 @@ function renderFactCard(floors){
 
 new ResizeObserver(resize).observe(wrap);
 loadApartmentCatalog();renderFilters();renderLib();renderLegend();resetView();loadFloor();initSidebarGrip();draw();
+if(document.documentElement.classList.contains('embedded'))setMode('auto');
 </script>
 <script>
 window.getMetaMassingPayload=function(){
