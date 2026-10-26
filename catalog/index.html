@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+<meta name="robots" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
+<title>Каталог квартир</title>
+<style>
+  :root{
+    --bg:#f4f5f7;--card:#fff;--ink:#1c1d21;--muted:#6b6f76;--line:#e3e5e9;
+    --accent:#2f6df6;--accent-soft:#eaf1ff;
+    --radius:12px;--shadow:0 1px 3px rgba(20,22,28,.06),0 4px 16px rgba(20,22,28,.04);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  .wrap{max-width:1400px;margin:0 auto;padding:14px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  h1{font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .subt{font-size:12px;color:var(--muted);margin-top:2px}
+  .modeswitch{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:var(--shadow)}
+  .modeswitch button{border:0;background:none;padding:8px 15px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);font-family:inherit}
+  .modeswitch button.active{background:var(--accent);color:#fff}
+  .meta-nav{display:inline-flex;align-items:center;padding:8px 13px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:600;text-decoration:none;white-space:nowrap}
+  .meta-nav:hover{background:var(--accent);color:#fff}
+
+  .mobfilterbtn{display:none;width:100%;padding:11px;border:1px solid var(--line);background:var(--card);border-radius:10px;font-size:14px;font-weight:500;margin-bottom:12px;cursor:pointer;box-shadow:var(--shadow)}
+
+  .layout{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+  .panel h3{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px;font-weight:600}
+  .fgroup{margin-bottom:18px}
+  .fgroup:last-child{margin-bottom:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:12.5px;cursor:pointer;user-select:none;transition:.12s;font-family:inherit}
+  .chip:hover{border-color:var(--accent)}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.small{padding:5px 11px;font-size:12px}
+  .chip.dim{opacity:.4;cursor:not-allowed}
+
+  .rangevals{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .dual{position:relative;height:32px;margin-top:2px}
+  .dual input[type=range]{position:absolute;top:0;left:0;width:100%;-webkit-appearance:none;background:none;pointer-events:none;height:32px;margin:0}
+  .dual input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:all;width:20px;height:20px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer}
+  .dual input[type=range]::-moz-range-thumb{pointer-events:all;width:20px;height:20px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer}
+  .dualtrack{position:absolute;top:14px;left:0;width:100%;height:4px;background:var(--line);border-radius:2px}
+  .dualfill{position:absolute;top:14px;height:4px;background:var(--accent);border-radius:2px}
+
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .count{font-size:13px;color:var(--muted)}.count b{color:var(--ink)}
+  .viewtabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .viewtabs button{border:0;background:none;width:36px;height:32px;border-radius:6px;cursor:pointer;color:var(--muted);display:flex;align-items:center;justify-content:center}
+  .viewtabs button.active{background:var(--accent-soft);color:var(--accent)}
+  .viewtabs svg{width:16px;height:16px}
+  .reset{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 12px;font-size:12.5px;cursor:pointer;color:var(--muted);font-family:inherit;box-shadow:var(--shadow)}
+  .reset:hover{color:var(--ink)}
+
+  .grid{display:grid;gap:14px}
+  .grid.c2{grid-template-columns:repeat(2,1fr)}
+  .grid.c3{grid-template-columns:repeat(3,1fr)}
+  .grid.list{grid-template-columns:1fr}
+
+  .apt{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:.12s}
+  .apt:hover{box-shadow:0 2px 6px rgba(20,22,28,.1),0 8px 24px rgba(20,22,28,.06);transform:translateY(-1px)}
+  .grid.list .apt{flex-direction:row}
+  .aptimg{position:relative;background:#f0f1f4;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .grid.list .aptimg{width:140px;min-width:140px;aspect-ratio:auto}
+  .aptimg img{width:100%;height:100%;object-fit:contain}
+  .aptimg .noimg{color:#b3b7bd;font-size:12px;text-align:center;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .aptimg .noimg svg{width:32px;height:32px;opacity:.4}
+  .aptbody{padding:12px 13px;flex:1;display:flex;flex-direction:column;gap:8px}
+  .aptname{font-weight:600;font-size:14px;letter-spacing:-.01em;word-break:break-word}
+  .areabox{display:inline-flex;align-items:baseline;gap:5px;background:var(--accent-soft);color:#1a4bb8;border-radius:8px;padding:5px 10px;font-weight:700;font-size:16px;width:fit-content}
+  .areabox span{font-size:11px;font-weight:600;opacity:.8}
+  .aptmeta{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:12.5px;color:var(--muted)}
+  .aptmeta b{color:var(--ink);font-weight:600}
+  .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto}
+  .badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px}
+  .b-1С{background:#fef1dd;color:#a85a1e}
+  .b-1К2С{background:#e3f5ec;color:#1d7d52}
+  .b-3С{background:#eaf1ff;color:#2559c8}
+  .b-4С{background:#efe8fd;color:#6d3fc4}
+  .b-var{background:#f5f0e0;color:#8a6410}
+  .b-corr-plus{background:#e3f5ec;color:#1d7d52}
+  .b-corr-minus{background:#fbe6e5;color:#bd3b34}
+  .b-torc{background:#fef1dd;color:#b9791a}
+
+  .modal{position:fixed;inset:0;background:rgba(15,17,22,.85);display:none;align-items:center;justify-content:center;z-index:60;padding:16px;cursor:zoom-out}
+  .modal.open{display:flex}
+  .modal .modalbox{max-width:1000px;width:100%;background:#fff;border-radius:12px;padding:22px;position:relative;max-height:92vh;overflow-y:auto}
+  .modal .modalclose{position:absolute;top:14px;right:14px;background:none;border:0;color:var(--muted);cursor:pointer;padding:4px}
+  .modal h2{font-size:18px;font-weight:600;margin-bottom:12px}
+  .modal .modalarea{display:inline-block;background:var(--accent-soft);color:#1a4bb8;padding:8px 14px;border-radius:8px;font-size:22px;font-weight:700;margin-bottom:14px}
+  .modal .modalarea span{font-size:12px;font-weight:600;opacity:.8;margin-left:4px}
+  .modal .modalgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:13px}
+  .modal .modalgrid dt{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em;margin-top:8px}
+  .modal .modalgrid dd{color:var(--ink);font-weight:500}
+
+  .empty{text-align:center;color:var(--muted);padding:60px 20px}
+
+  .altBtn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;margin-top:2px;transition:.12s}
+  .altBtn:hover{background:var(--accent);color:#fff}
+  .altBtn svg{width:12px;height:12px}
+
+  /* Полноэкранный просмотр изображения */
+  .lightbox{position:fixed;inset:0;background:rgba(15,17,22,.96);display:none;align-items:center;justify-content:center;z-index:80;padding:20px;cursor:zoom-out}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px}
+  .lightbox .lbclose{position:absolute;top:16px;right:16px;background:rgba(0,0,0,.35);border:0;color:#fff;cursor:pointer;padding:8px;border-radius:8px;z-index:2}
+  .lightbox .lbclose:hover{background:rgba(0,0,0,.55)}
+  .lightbox .lbcap{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);color:#fff;background:rgba(0,0,0,.4);padding:8px 16px;border-radius:8px;font-size:13px}
+
+  /* Метки-бейджи размера */
+  .b-XS{background:#e6f0fa;color:#1f5f9e}
+  .b-S{background:#e0f2e9;color:#1d7d52}
+  .b-M{background:#fef1dd;color:#a85a1e}
+  .b-L{background:#f5e4c7;color:#8a5a12}
+  .b-top{background:#fef1dd;color:#b9791a;font-weight:700}
+  .b-antitop{background:#fbe6e5;color:#bd3b34;font-weight:700}
+  .b-exc{background:#f5e6ff;color:#7c2fb3;font-weight:700}
+
+  /* Админ-блок в карточке */
+  .adminbox{border-top:1px dashed var(--line);margin-top:2px;padding-top:9px;display:flex;flex-direction:column;gap:9px}
+  .adminlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;margin-bottom:4px}
+  .miniChips{display:flex;flex-wrap:wrap;gap:4px}
+  .miniChip{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 8px;font-size:11.5px;cursor:pointer;user-select:none;font-family:inherit;color:var(--ink)}
+  .miniChip:hover{border-color:var(--accent)}
+  .miniChip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .miniChip.on.XS{background:#1f5f9e;border-color:#1f5f9e}
+  .miniChip.on.S{background:#1d7d52;border-color:#1d7d52}
+  .miniChip.on.M{background:#a85a1e;border-color:#a85a1e}
+  .miniChip.on.L{background:#8a5a12;border-color:#8a5a12}
+  .miniChip.on.top{background:#b9791a;border-color:#b9791a}
+  .miniChip.on.antitop{background:#bd3b34;border-color:#bd3b34}
+  .miniChip.on.exc{background:#7c2fb3;border-color:#7c2fb3}
+  .note{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:12px;font-family:inherit;resize:vertical;min-height:36px;background:#fcfcfd}
+  .note:focus{outline:none;border-color:var(--accent)}
+
+
+  @media(max-width:820px){
+    .layout{grid-template-columns:1fr}
+    .mobfilterbtn{display:block}
+    .panel.filters{display:none}
+    .panel.filters.open{display:block}
+    .grid.c3{grid-template-columns:repeat(2,1fr)}
+    h1{font-size:16px}
+    .modal .modalgrid{grid-template-columns:1fr}
+  }
+
+  .aptimg { position: relative; }
+  .aptCmp { position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%;
+    border:1.5px solid var(--line); background:rgba(255,255,255,.92); cursor:pointer; z-index:2;
+    display:flex; align-items:center; justify-content:center; padding:0; color:var(--muted); transition:.12s; }
+  .aptCmp:hover { border-color:var(--accent); color:var(--accent); }
+  .aptCmp.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .aptCmp svg { width:16px; height:16px; }
+  .cmpFab { position:fixed; bottom:22px; right:22px; z-index:40; background:var(--accent); color:#fff;
+    border:0; border-radius:999px; padding:12px 22px; font-size:14px; font-weight:600;
+    box-shadow:0 4px 16px rgba(47,109,246,.4); cursor:pointer; display:none; align-items:center; gap:8px;
+    font-family:inherit; }
+  .cmpFab.visible { display:inline-flex; }
+  .cmpFab .cnt { background:rgba(255,255,255,.25); padding:2px 9px; border-radius:10px; font-size:13px; }
+  .cmpModal { position:fixed; inset:0; background:rgba(15,17,22,.85); display:none;
+    align-items:flex-start; justify-content:center; z-index:70; padding:20px; overflow-y:auto; }
+  .cmpModal.open { display:flex; }
+  .cmpBox { background:#fff; border-radius:12px; max-width:1400px; width:100%;
+    padding:22px; position:relative; margin:auto; }
+  .cmpBox h2 { font-size:20px; font-weight:600; margin-bottom:4px; }
+  .cmpBox .sub { font-size:13px; color:var(--muted); }
+  .cmpTools { display:flex; gap:8px; margin:14px 0; flex-wrap:wrap; }
+  .cmpTools button { border:1px solid var(--line); background:#fff; border-radius:8px;
+    padding:7px 14px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .cmpTools .prim { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .cmpGrid { display:grid; gap:14px; margin-top:8px; }
+  .cmpCol { background:#fafbfc; border:1px solid var(--line); border-radius:12px;
+    padding:14px; display:flex; flex-direction:column; gap:10px; position:relative; }
+  .cmpRm { position:absolute; top:8px; right:8px; background:rgba(255,255,255,.9);
+    border:1px solid var(--line); border-radius:50%; width:26px; height:26px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; color:var(--muted); padding:0; }
+  .cmpRm:hover { color:#bd3b34; border-color:#bd3b34; }
+  .cmpCol h3 { font-size:13px; font-weight:600; word-break:break-word; padding-right:32px; }
+  .cmpCol img { width:100%; height:220px; object-fit:contain; background:#f0f1f4; border-radius:8px; }
+  .cmpArea { background:var(--accent-soft); color:#1a4bb8; padding:6px 12px; border-radius:8px;
+    font-weight:700; font-size:18px; width:fit-content; display:inline-flex; align-items:baseline; gap:4px; }
+  .cmpArea span { font-size:11px; }
+  .cmpParams { font-size:13px; }
+  .cmpParams .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:6px 0; border-bottom:1px solid var(--line); }
+  .cmpParams .row:last-child { border-bottom:0; }
+  .cmpParams .k { color:var(--muted); font-size:12px; }
+  .cmpParams .v { font-weight:500; text-align:right; }
+  .cmpEmpty { text-align:center; padding:60px 20px; color:var(--muted); }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="background:var(--accent);padding:8px 16px;border-radius:10px;display:flex;align-items:center;line-height:1">
+        <svg width="72" height="20" viewBox="0 0 100 28" xmlns="http://www.w3.org/2000/svg" aria-label="META">
+          <text x="50" y="22" font-family="-apple-system, 'Segoe UI', Arial, sans-serif" font-weight="900" font-size="26" fill="#fff" text-anchor="middle" letter-spacing="1.5">META</text>
+        </svg>
+      </div>
+      <div>
+        <h1>Каталог квартир</h1>
+        <div class="subt" id="subt"></div><div id="syncBadge" style="font-size:11px;margin-top:4px;color:var(--muted)">● Инициализация...</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a class="meta-nav" href="https://ekaterinaponkra-wq.github.io/floor-configurator/">МЕТА · Конструктор этажа ↗</a><div class="modeswitch" id="modeswitch">
+        <button data-m="view" class="active">Просмотр</button>
+        <button data-m="admin">Администратор</button>
+      </div>
+      <div class="viewtabs" id="viewtabs">
+        <button data-v="c2" title="Крупная сетка"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6"/><rect x="9" y="1" width="6" height="6"/><rect x="1" y="9" width="6" height="6"/><rect x="9" y="9" width="6" height="6"/></svg></button>
+        <button data-v="c3" class="active" title="Мелкая сетка"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="4" height="4"/><rect x="6" y="1" width="4" height="4"/><rect x="11" y="1" width="4" height="4"/><rect x="1" y="6" width="4" height="4"/><rect x="6" y="6" width="4" height="4"/><rect x="11" y="6" width="4" height="4"/><rect x="1" y="11" width="4" height="4"/><rect x="6" y="11" width="4" height="4"/><rect x="11" y="11" width="4" height="4"/></svg></button>
+        <button data-v="list" title="Список"><svg viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="2"/><rect x="1" y="7" width="14" height="2"/><rect x="1" y="12" width="14" height="2"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <button class="mobfilterbtn" onclick="document.querySelector('.panel.filters').classList.toggle('open')">☰ Фильтры</button>
+
+  <div class="layout">
+    <aside class="panel filters">
+      <div class="fgroup">
+        <h3>Типология</h3>
+        <div class="chips" id="fType"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Глубина, м</h3>
+        <div class="chips" id="fDepth"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Ширина, м</h3>
+        <div class="chips" id="fWidth"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Со стороны коридора</h3>
+        <div class="chips" id="fCorr"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Торцевое +1.5</h3>
+        <div class="chips" id="fEnd"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Вариант</h3>
+        <div class="chips" id="fVar"></div>
+      </div>
+      <div class="fgroup">
+        <h3>Площадь, м²</h3>
+        <div class="rangevals"><span id="areaMinL">0</span><span id="areaMaxL">100</span></div>
+        <div class="dual">
+          <div class="dualtrack"></div>
+          <div class="dualfill" id="dualfill"></div>
+          <input type="range" id="areaMin" min="0" max="100" value="0">
+          <input type="range" id="areaMax" min="0" max="100" value="100">
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <div class="count" id="count"></div>
+        <button class="reset" id="reset">Сбросить фильтры</button>
+      </div>
+      <div class="grid c3" id="grid"></div>
+      <div class="empty" id="empty" style="display:none">Ничего не нашли по этому фильтру</div>
+    </main>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modalbox" onclick="event.stopPropagation()">
+    <button class="modalclose" onclick="document.getElementById('modal').classList.remove('open')"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <div id="mImgBox" style="text-align:center;margin-bottom:14px">
+      <img id="mImg" src="" alt="" style="max-width:100%;max-height:65vh;object-fit:contain;background:#f8f9fb;border-radius:8px;padding:12px;cursor:zoom-in" onerror="this.style.display='none'" onclick="openLightbox(this.src)">
+    </div>
+    <h2 id="mName"></h2>
+    <div class="modalarea" id="mArea"></div>
+    <dl class="modalgrid" id="mGrid"></dl>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap">
+      <button id="mShare" style="border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Скопировать ссылку</button>
+      <span id="mShareOk" style="align-self:center;font-size:12px;color:var(--accent);display:none">Ссылка скопирована ✓</span>
+    </div>
+  </div>
+</div>
+
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lbclose" onclick="event.stopPropagation();closeLightbox()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+  <img id="lbImg" src="" alt="" onclick="event.stopPropagation()">
+  <div class="lbcap" id="lbCap"></div>
+</div>
+
+<script>
+const APTS = [{"t":"1К/2С","d":5.7,"eb":0,"w":10.6,"c":"","v":"","n":"1К/2С_5.7х10.6","a":43.3},{"t":"1К/2С","d":6.5,"eb":0,"w":6.0,"c":"","v":"1","n":"1К/2С_6.5х6.0 _1","a":32.6},{"t":"1К/2С","d":6.5,"eb":0,"w":6.0,"c":"","v":"2","n":"1К/2С_6.5х6.0 _2","a":32.4},{"t":"1К/2С","d":6.5,"eb":0,"w":6.0,"c":"","v":"3","n":"1К/2С_6.5х6.0 _3","a":32.2},{"t":"1К/2С","d":6.5,"eb":0,"w":6.3,"c":"","v":"1","n":"1К/2С_6.5х6.3 _1","a":34.1},{"t":"1К/2С","d":6.5,"eb":0,"w":6.9,"c":"-2.7","v":"","n":"1К/2С_6.5х6.9 (-2.7)","a":30.8},{"t":"1К/2С","d":7.0,"eb":0,"w":6.0,"c":"","v":"1","n":"1К/2С_7.0х6.0 _1","a":35.1},{"t":"1К/2С","d":7.0,"eb":0,"w":6.0,"c":"","v":"2","n":"1К/2С_7.0х6.0 _2","a":35.2},{"t":"1К/2С","d":7.0,"eb":0,"w":6.0,"c":"","v":"3","n":"1К/2С_7.0х6.0 _3","a":34.9},{"t":"1К/2С","d":7.0,"eb":0,"w":6.3,"c":"","v":"1","n":"1К/2С_7.0х6.3 _1","a":37.1},{"t":"1К/2С","d":7.0,"eb":0,"w":6.3,"c":"","v":"2","n":"1К/2С_7.0х6.3 _2","a":36.3},{"t":"1К/2С","d":7.0,"eb":0,"w":6.5,"c":"-2.7","v":"","n":"1К/2С_7.0х6.5 (-2.7)","a":31.5},{"t":"1К/2С","d":7.0,"eb":0,"w":6.9,"c":"-2.7","v":"","n":"1К/2С_7.0х6.9 (-2.7)","a":34.1},{"t":"1К/2С","d":7.5,"eb":0,"w":6.0,"c":"-2.3","v":"","n":"1К/2С_7.5х6.0 (-2.3)","a":32.1},{"t":"1К/2С","d":7.5,"eb":0,"w":6.0,"c":"","v":"1","n":"1К/2С_7.5х6.0 _1","a":37.9},{"t":"1К/2С","d":7.5,"eb":0,"w":6.0,"c":"","v":"2","n":"1К/2С_7.5х6.0 _2","a":37.9},{"t":"1К/2С","d":7.5,"eb":0,"w":6.0,"c":"","v":"3","n":"1К/2С_7.5х6.0 _3","a":37.6},{"t":"1К/2С","d":7.5,"eb":0,"w":6.3,"c":"","v":"1","n":"1К/2С_7.5х6.3 _1","a":40.0},{"t":"1К/2С","d":7.5,"eb":0,"w":6.3,"c":"","v":"2","n":"1К/2С_7.5х6.3 _2","a":39.2},{"t":"1К/2С","d":7.5,"eb":0,"w":6.5,"c":"-2.7","v":"","n":"1К/2С_7.5х6.5 (-2.7)","a":34.6},{"t":"1К/2С","d":7.5,"eb":0,"w":6.9,"c":"-2.7","v":"","n":"1К/2С_7.5х6.9 (-2.7)","a":37.4},{"t":"1К/2С","d":7.7,"eb":0,"w":6.0,"c":"","v":"1","n":"1К/2С_7.7х6.0 _1","a":38.9},{"t":"1К/2С","d":7.7,"eb":0,"w":6.0,"c":"-2.3","v":"","n":"1К/2С_7.7х6.0 (-2.3)","a":33.2},{"t":"1К/2С","d":7.7,"eb":0,"w":6.0,"c":"","v":"2","n":"1К/2С_7.7х6.0 _2","a":39.0},{"t":"1К/2С","d":7.7,"eb":0,"w":6.0,"c":"","v":"3","n":"1К/2С_7.7х6.0 _3","a":38.7},{"t":"1К/2С","d":7.7,"eb":0,"w":6.3,"c":"","v":"1","n":"1К/2С_7.7х6.3 _1","a":41.0},{"t":"1К/2С","d":7.7,"eb":0,"w":6.3,"c":"","v":"2","n":"1К/2С_7.7х6.3 _2","a":40.6},{"t":"1К/2С","d":7.7,"eb":0,"w":6.5,"c":"-2.7","v":"","n":"1К/2С_7.7х6.5 (-2.7)","a":35.8},{"t":"1К/2С","d":7.7,"eb":0,"w":6.9,"c":"-2.7","v":"","n":"1К/2С_7.7х6.9 (-2.7)","a":38.7},{"t":"1С","d":3.5,"eb":0,"w":9.9,"c":"","v":"","n":"1С_3.5х9.9","a":24.3},{"t":"1С","d":6.5,"eb":0,"w":3.3,"c":"+2.7","v":"","n":"1С_6.5х3.3 (+2.7)","a":23.3},{"t":"1С","d":6.5,"eb":0,"w":3.6,"c":"","v":"","n":"1С_6.5х3.6","a":18.5},{"t":"1С","d":6.5,"eb":0,"w":3.6,"c":"+2.7","v":"","n":"1С_6.5х3.6 (+2.7)","a":25.1},{"t":"1С","d":6.5,"eb":0,"w":3.8,"c":"","v":"","n":"1С_6.5х3.8","a":19.4},{"t":"1С","d":6.5,"eb":0,"w":4.0,"c":"","v":"","n":"1С_6.5х4.0","a":20.5},{"t":"1С","d":6.5,"eb":0,"w":4.2,"c":"","v":"","n":"1С_6.5х4.2","a":21.7},{"t":"1С","d":7.0,"eb":0,"w":3.0,"c":"+2.3","v":"","n":"1С_7.0х3.0 (+2.3)","a":22.5},{"t":"1С","d":7.0,"eb":0,"w":3.3,"c":"+2.7","v":"","n":"1С_7.0х3.3 (+2.7)","a":24.8},{"t":"1С","d":7.0,"eb":0,"w":3.6,"c":"","v":"","n":"1С_7.0х3.6","a":20.2},{"t":"1С","d":7.0,"eb":0,"w":3.6,"c":"+2.7","v":"","n":"1С_7.0х3.6 (+2.7)","a":26.7},{"t":"1С","d":7.0,"eb":0,"w":3.8,"c":"","v":"","n":"1С_7.0х3.8","a":21.5},{"t":"1С","d":7.0,"eb":0,"w":4.0,"c":"","v":"","n":"1С_7.0х4.0","a":22.7},{"t":"1С","d":7.0,"eb":0,"w":4.2,"c":"","v":"","n":"1С_7.0х4.2","a":24.1},{"t":"1С","d":7.5,"eb":0,"w":3.0,"c":"+2.3","v":"","n":"1С_7.5х3.0 (+2.3)","a":23.2},{"t":"1С","d":7.5,"eb":0,"w":3.3,"c":"","v":"","n":"1С_7.5х3.3","a":20.1},{"t":"1С","d":7.5,"eb":0,"w":3.3,"c":"+2.7","v":"","n":"1С_7.5х3.3 (+2.7)","a":26.3},{"t":"1С","d":7.5,"eb":0,"w":3.6,"c":"","v":"","n":"1С_7.5х3.6","a":21.8},{"t":"1С","d":7.5,"eb":0,"w":3.6,"c":"+2.7","v":"","n":"1С_7.5х3.6 (+2.7)","a":28.4},{"t":"1С","d":7.5,"eb":0,"w":3.8,"c":"","v":"","n":"1С_7.5х3.8","a":23.2},{"t":"1С","d":7.5,"eb":0,"w":4.0,"c":"","v":"","n":"1С_7.5х4.0","a":24.6},{"t":"1С","d":7.5,"eb":0,"w":4.2,"c":"","v":"","n":"1С_7.5х4.2","a":26.0},{"t":"1С","d":7.7,"eb":0,"w":3.0,"c":"+2.3","v":"","n":"1С_7.7х3.0 (+2.3)","a":23.8},{"t":"1С","d":7.7,"eb":0,"w":3.3,"c":"","v":"","n":"1С_7.7х3.3","a":20.7},{"t":"1С","d":7.7,"eb":0,"w":3.3,"c":"+2.7","v":"","n":"1С_7.7х3.3 (+2.7)","a":26.9},{"t":"1С","d":7.7,"eb":0,"w":3.6,"c":"","v":"","n":"1С_7.7х3.6","a":22.5},{"t":"1С","d":7.7,"eb":0,"w":3.6,"c":"+2.7","v":"","n":"1С_7.7х3.6 (+2.7)","a":29.0},{"t":"1С","d":7.7,"eb":0,"w":3.8,"c":"","v":"","n":"1С_7.7х3.8","a":23.9},{"t":"1С","d":7.7,"eb":0,"w":4.0,"c":"","v":"","n":"1С_7.7х4.0","a":25.4},{"t":"1С","d":7.7,"eb":0,"w":4.2,"c":"","v":"","n":"1С_7.7х4.2","a":26.8},{"t":"3С","d":6.5,"eb":1.5,"w":6.3,"c":"+2.7","v":"","n":"3С_6.5+1.5х6.3 (+2.7)","a":50.6},{"t":"3С","d":6.5,"eb":1.5,"w":9.6,"c":"","v":"","n":"3С_6.5+1.5х9.6","a":62.9},{"t":"3С","d":6.5,"eb":0,"w":8.8,"c":"-2.7","v":"","n":"3С_6.5х8.8 (-2.7)","a":41.9},{"t":"3С","d":6.5,"eb":0,"w":9.4,"c":"","v":"","n":"3С_6.5х9.4","a":51.1},{"t":"3С","d":7.0,"eb":1.5,"w":6.3,"c":"+2.7","v":"","n":"3С_7.0+1.5х6.3 (+2.7)","a":53.6},{"t":"3С","d":7.0,"eb":1.5,"w":9.6,"c":"","v":"","n":"3С_7.0+1.5х9.6","a":67.7},{"t":"3С","d":7.0,"eb":1.5,"w":6.4,"c":"","v":"","n":"3С_7.0+1.5х6.4","a":45.2},{"t":"3С","d":7.0,"eb":1.5,"w":6.6,"c":"","v":"","n":"3С_7.0+1.5х6.6","a":46.1},{"t":"3С","d":7.0,"eb":0,"w":6.3,"c":"+2.7","v":"","n":"3С_7.0х6.3 (+2.7)","a":43.2},{"t":"3С","d":7.0,"eb":0,"w":7.1,"c":"+2.3","v":"1","n":"3С_7.0х7.1 (+2.3) _1","a":47.0},{"t":"3С","d":7.0,"eb":0,"w":7.1,"c":"+2.3","v":"2","n":"3С_7.0х7.1 (+2.3) _2","a":46.8},{"t":"3С","d":7.0,"eb":0,"w":8.8,"c":"","v":"","n":"3С_7.0х8.8","a":51.5},{"t":"3С","d":7.0,"eb":0,"w":8.8,"c":"-2.7","v":"","n":"3С_7.0х8.8 (-2.7)","a":46.1},{"t":"3С","d":7.0,"eb":0,"w":9.0,"c":"","v":"","n":"3С_7.0х9.0","a":52.6},{"t":"3С","d":7.0,"eb":0,"w":9.4,"c":"","v":"","n":"3С_7.0х9.4","a":55.6},{"t":"3С","d":7.5,"eb":1.5,"w":6.3,"c":"+2.7","v":"","n":"3С_7.5+1.5х6.3 (+2.7)","a":53.4},{"t":"3С","d":7.5,"eb":1.5,"w":6.4,"c":"","v":"","n":"3С_7.5+1.5х6.4","a":48.2},{"t":"3С","d":7.5,"eb":1.5,"w":6.6,"c":"","v":"","n":"3С_7.5+1.5х6.6","a":49.2},{"t":"3С","d":7.5,"eb":1.5,"w":8.3,"c":"","v":"","n":"3С_7.5+1.5х8.3","a":60.6},{"t":"3С","d":7.5,"eb":0,"w":6.3,"c":"+2.7","v":"","n":"3С_7.5х6.3 (+2.7)","a":46.2},{"t":"3С","d":7.5,"eb":0,"w":7.1,"c":"+2.3","v":"1","n":"3С_7.5х7.1 (+2.3) _1","a":50.3},{"t":"3С","d":7.5,"eb":0,"w":7.1,"c":"+2.3","v":"2","n":"3С_7.5х7.1 (+2.3) _2","a":50.2},{"t":"3С","d":7.5,"eb":0,"w":8.8,"c":"","v":"","n":"3С_7.5х8.8","a":55.6},{"t":"3С","d":7.5,"eb":0,"w":8.8,"c":"-2.7","v":"","n":"3С_7.5х8.8 (-2.7)","a":50.3},{"t":"3С","d":7.5,"eb":0,"w":9.0,"c":"","v":"","n":"3С_7.5х9.0","a":56.8},{"t":"3С","d":7.5,"eb":0,"w":9.4,"c":"","v":"","n":"3С_7.5х9.4","a":60.1},{"t":"3С","d":7.7,"eb":1.5,"w":6.3,"c":"+2.7","v":"","n":"3С_7.7+1.5х6.3 (+2.7)","a":54.6},{"t":"3С","d":7.7,"eb":1.5,"w":6.4,"c":"","v":"","n":"3С_7.7+1.5х6.4","a":49.1},{"t":"3С","d":7.7,"eb":1.5,"w":6.6,"c":"","v":"","n":"3С_7.7+1.5х6.6","a":50.2},{"t":"3С","d":7.7,"eb":1.5,"w":8.3,"c":"","v":"","n":"3С_7.7+1.5х8.3","a":62.2},{"t":"3С","d":7.7,"eb":0,"w":6.3,"c":"+2.7","v":"","n":"3С_7.7х6.3 (+2.7)","a":47.4},{"t":"3С","d":7.7,"eb":0,"w":7.1,"c":"+2.3","v":"2","n":"3С_7.7х7.1 (+2.3) _2","a":51.5},{"t":"3С","d":7.7,"eb":0,"w":8.8,"c":"","v":"","n":"3С_7.7х8.8","a":57.3},{"t":"3С","d":7.7,"eb":0,"w":8.8,"c":"-2.7","v":"","n":"3С_7.7х8.8 (-2.7)","a":52.0},{"t":"3С","d":7.7,"eb":0,"w":9.0,"c":"","v":"","n":"3С_7.7х9.0","a":58.6},{"t":"3С","d":7.7,"eb":0,"w":9.4,"c":"","v":"","n":"3С_7.7х9.4","a":61.8},{"t":"4С","d":7.5,"eb":1.5,"w":9.6,"c":"","v":"","n":"4С_7.5+1.5х9.6","a":71.6},{"t":"4С","d":7.7,"eb":1.5,"w":9.6,"c":"","v":"","n":"4С_7.7+1.5х9.6","a":73.5},{"t":"3С","d":7.5,"eb":1.5,"w":6.7,"c":"","v":"A2","n":"3С_7.5+1.5х6.7_A2","a":58.8},{"t":"3С","d":7.5,"eb":1.5,"w":3.3,"c":"+2.3","v":"A1","n":"3С_7.5+1.5х3.3 (+2.3)_А1","a":55.4}];
+
+function imgPath(n) {
+  const clean = n
+    .replace(/\s+_/g, '_')
+    .replace(/\s+/g, ' ')
+    .replace(/\./g, '-')
+    .replace(/\//g, '-');
+  return 'apt - План этажа - ' + clean + '_Ф2.png';
+}
+
+
+function openLightbox(src) {
+  const lb = document.getElementById('lightbox');
+  document.getElementById('lbImg').src = src;
+  const name = document.getElementById('mName').textContent;
+  document.getElementById('lbCap').textContent = name;
+  lb.classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('modal').classList.remove('open');
+  }
+});
+
+// === URL-фильтры ===
+function readURL() {
+  const p = new URLSearchParams(location.search);
+  const s = {};
+  if (p.get('t')) s.type = p.get('t');
+  if (p.get('d')) s.d = parseFloat(p.get('d'));
+  if (p.get('w')) s.w = parseFloat(p.get('w'));
+  if (p.get('c')) s.c = p.get('c');
+  if (p.get('eb')) s.eb = parseFloat(p.get('eb'));
+  if (p.get('v')) s.v = p.get('v');
+  if (p.get('aMin')) s.aMin = parseFloat(p.get('aMin'));
+  if (p.get('aMax')) s.aMax = parseFloat(p.get('aMax'));
+  if (p.get('view')) s.view = p.get('view');
+  if (p.get('compare')) s.compare = p.get('compare').split(',').filter(Boolean);
+  return s;
+}
+function writeURL() {
+  const p = new URLSearchParams();
+  if (state.type) p.set('t', state.type);
+  if (state.d !== null) p.set('d', state.d);
+  if (state.w !== null) p.set('w', state.w);
+  if (state.c !== null) p.set('c', state.c);
+  if (state.eb !== null) p.set('eb', state.eb);
+  if (state.v !== null) p.set('v', state.v);
+  if (state.aMin > A_MIN) p.set('aMin', state.aMin);
+  if (state.aMax < A_MAX) p.set('aMax', state.aMax);
+  if (state.view !== 'c3') p.set('view', state.view);
+  if (state.compare && state.compare.length > 0) p.set('compare', state.compare.join(','));
+  const qs = p.toString();
+  const url = location.pathname + (qs ? '?' + qs : '');
+  history.replaceState(null, '', url);
+}
+function shareApt(a) {
+  const p = new URLSearchParams();
+  p.set('t', a.t);
+  p.set('d', a.d);
+  p.set('w', a.w);
+  p.set('eb', a.eb);
+  if (a.c) p.set('c', a.c);
+  if (a.v) p.set('v', a.v);
+  p.set('open', a.n);
+  return location.origin + location.pathname + '?' + p.toString();
+}
+
+const state = { type: null, d: null, w: null, c: null, eb: null, v: null, aMin: 0, aMax: 100, view: 'c3', mode: 'view', compare: [] };
+// === Синхронизация меток через npoint.io ===
+const BIN_URL = 'https://api.npoint.io/4454495a56840c7100fd';
+const STORAGE_KEY = 'apt-catalog-meta-v1';
+
+let META = {};
+let saveTimer = null;
+let syncStatus = 'idle'; // idle | loading | saving | error
+
+// Локальный кэш для быстрого старта
+try { META = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { META = {}; }
+
+function updSyncBadge() {
+  const b = document.getElementById('syncBadge');
+  if (!b) return;
+  const map = {
+    idle: {t: 'Синхронизировано', c: 'var(--muted)'},
+    loading: {t: 'Загрузка...', c: 'var(--accent)'},
+    saving: {t: 'Сохранение...', c: 'var(--accent)'},
+    error: {t: 'Ошибка синхронизации', c: '#bd3b34'}
+  };
+  const s = map[syncStatus] || map.idle;
+  b.textContent = '● ' + s.t;
+  b.style.color = s.c;
+}
+
+async function loadCloudMeta() {
+  syncStatus = 'loading'; updSyncBadge();
+  try {
+    const r = await fetch(BIN_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) {
+      const cloud = await r.json();
+      META = cloud || {};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(META));
+      render();
+      syncStatus = 'idle';
+    } else {
+      syncStatus = 'error';
+    }
+  } catch (e) {
+    console.warn('Load cloud failed', e);
+    syncStatus = 'error';
+  }
+  updSyncBadge();
+}
+
+function metaFor(n) { if (!META[n]) META[n] = { size: null, flag: null, exc: false, note: '' }; return META[n]; }
+
+function saveMeta() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(META)); } catch(e){}
+  scheduleCloudSave();
+}
+
+function scheduleCloudSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  syncStatus = 'saving'; updSyncBadge();
+  saveTimer = setTimeout(pushToCloud, 1500);
+}
+
+async function pushToCloud() {
+  try {
+    const r = await fetch(BIN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(META)
+    });
+    if (r.ok) {
+      syncStatus = 'idle';
+    } else {
+      syncStatus = 'error';
+    }
+  } catch (e) {
+    console.warn('Push failed', e);
+    syncStatus = 'error';
+  }
+  updSyncBadge();
+}
+
+// Загрузить облачные данные при старте
+setTimeout(loadCloudMeta, 500);
+
+// Каждые 30 секунд обновлять — увидим изменения от других пользователей
+setInterval(() => {
+  if (syncStatus === 'idle') loadCloudMeta();
+}, 30000);
+const A_MIN = Math.floor(Math.min(...APTS.map(a=>a.a)));
+const A_MAX = Math.ceil(Math.max(...APTS.map(a=>a.a)));
+state.aMin = A_MIN; state.aMax = A_MAX;
+
+function fmt(x) { return Number(x).toFixed(1).replace(/\.0$/, ''); }
+function typeCls(t) { return 'b-' + t.replace('/','').replace('К','К').replace('С','С'); }
+
+function passes(a) {
+  if (state.type && a.t !== state.type) return false;
+  if (state.d !== null && a.d !== state.d) return false;
+  if (state.w !== null && a.w !== state.w) return false;
+  if (state.c !== null) { const target = state.c === '±0' ? '' : state.c; if (a.c !== target) return false; }
+  if (state.eb !== null && a.eb !== state.eb) return false;
+  if (state.v !== null && a.v !== state.v) return false;
+  if (a.a < state.aMin || a.a > state.aMax) return false;
+  return true;
+}
+
+function chipsBlock(id, values, current, formatter, setter) {
+  const box = document.getElementById(id);
+  if (!values.length) { box.innerHTML = '<div style="color:var(--muted);font-size:12px">—</div>'; return; }
+  box.innerHTML = '<div class="chip small ' + (current === null ? 'on' : '') + '" data-val="__all__">Все</div>' +
+    values.map(v => '<div class="chip small ' + (String(current) === String(v) ? 'on' : '') + '" data-val="' + v + '">' + (formatter ? formatter(v) : v) + '</div>').join('');
+  box.querySelectorAll('.chip').forEach(c => c.onclick = () => setter(c.dataset.val === '__all__' ? null : c.dataset.val));
+}
+
+
+// === Сравнение планировок ===
+function toggleCompare(name, ev) {
+  if (ev) ev.stopPropagation();
+  const idx = state.compare.indexOf(name);
+  if (idx >= 0) {
+    state.compare.splice(idx, 1);
+  } else {
+    if (state.compare.length >= 4) { alert('Максимум 4 планировки'); return; }
+    state.compare.push(name);
+  }
+  updateCmpFab(); writeURL(); render();
+}
+function updateCmpFab() {
+  const fab = document.getElementById('cmpFab');
+  const n = state.compare.length;
+  if (n > 0) { fab.classList.add('visible'); fab.querySelector('.cnt').textContent = n; }
+  else fab.classList.remove('visible');
+}
+function openCompare() {
+  const modal = document.getElementById('cmpModal');
+  const grid = document.getElementById('cmpGrid');
+  const sub = document.getElementById('cmpSub');
+  const cards = state.compare.map(n => APTS.find(a => a.n === n)).filter(Boolean);
+  sub.textContent = cards.length + ' из 4 · клик по значку в углу карточки чтобы добавить/убрать';
+  if (cards.length === 0) {
+    grid.innerHTML = '<div class="cmpEmpty">Ничего не выбрано.<br>Кликни на значок ⊕ в правом верхнем углу карточки.</div>';
+  } else {
+    grid.style.gridTemplateColumns = 'repeat(' + cards.length + ', minmax(0, 1fr))';
+    grid.innerHTML = cards.map(function(a) { return '<div class="cmpCol">' +
+      '<button class="cmpRm" data-n="' + escHtml(a.n) + '" title="Убрать">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>' +
+      '</button>' +
+      '<h3>' + escHtml(a.n) + '</h3>' +
+      '<img src="' + escHtml(imgPath(a.n)) + '" onerror="this.style.display=\'none\'">' +
+      '<div class="cmpArea">' + fmt(a.a) + '<span>м²</span></div>' +
+      '<div class="cmpParams">' +
+        '<div class="row"><span class="k">Типология</span><span class="v">' + a.t + '</span></div>' +
+        '<div class="row"><span class="k">Глубина</span><span class="v">' + fmt(a.d) + (a.eb ? ' +' + fmt(a.eb) : '') + ' м</span></div>' +
+        '<div class="row"><span class="k">Ширина</span><span class="v">' + fmt(a.w) + ' м</span></div>' +
+        '<div class="row"><span class="k">Коридор</span><span class="v">' + (a.c || '±0') + '</span></div>' +
+        '<div class="row"><span class="k">Вариант</span><span class="v">' + (a.v ? '_' + a.v : '—') + '</span></div>' +
+      '</div>' +
+    '</div>'; }).join('');
+    grid.querySelectorAll('.cmpRm').forEach(function(b) {
+      b.onclick = function() {
+        const i = state.compare.indexOf(b.dataset.n);
+        if (i >= 0) state.compare.splice(i, 1);
+        updateCmpFab(); writeURL(); render(); openCompare();
+      };
+    });
+  }
+  modal.classList.add('open');
+}
+function clearCompare() {
+  state.compare = [];
+  updateCmpFab(); writeURL(); render();
+  document.getElementById('cmpModal').classList.remove('open');
+}
+async function shareCompare() {
+  if (state.compare.length === 0) return;
+  const p = new URLSearchParams();
+  p.set('compare', state.compare.join(','));
+  const url = location.origin + location.pathname + '?' + p.toString();
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('Ссылка скопирована!');
+  } catch(e) { prompt('Скопируйте ссылку:', url); }
+}
+
+function render() {
+  // Типология всегда фиксирована
+  const types = ['1С','1К/2С','3С','4С'];
+  document.getElementById('fType').innerHTML = 
+    '<div class="chip small ' + (state.type === null ? 'on' : '') + '" data-t="__all__">Все</div>' +
+    types.map(t => '<div class="chip small ' + (state.type === t ? 'on' : '') + '" data-t="' + t + '">' + t + '</div>').join('');
+  document.getElementById('fType').querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    state.type = c.dataset.t === '__all__' ? null : c.dataset.t;
+    state.d = state.w = state.c = state.eb = state.v = null;
+    render();
+  });
+
+  // Наборы значений — из выборки по типу
+  const scope = state.type ? APTS.filter(a => a.t === state.type) : APTS;
+  const depths = [...new Set(scope.map(a=>a.d))].sort((x,y)=>x-y);
+  const widths = [...new Set(scope.map(a=>a.w))].sort((x,y)=>x-y);
+  const corrsRaw = [...new Set(scope.map(a=>a.c))];
+  const corrs = [];
+  if (corrsRaw.includes('')) corrs.push('±0');
+  corrsRaw.filter(x => x !== '').sort().forEach(x => corrs.push(x));
+  const ends   = [...new Set(scope.map(a=>a.eb))];
+  const vars   = [...new Set(scope.map(a=>a.v))].filter(x=>x!=='').sort();
+
+  chipsBlock('fDepth', depths, state.d===null?null:state.d, fmt, v => { state.d = v===null?null:parseFloat(v); render(); });
+  chipsBlock('fWidth', widths, state.w===null?null:state.w, fmt, v => { state.w = v===null?null:parseFloat(v); render(); });
+  chipsBlock('fCorr', corrs, state.c, null, v => { state.c = v; render(); });
+  const endOpts = [];
+  if (ends.includes(0)) endOpts.push('±0');
+  if (ends.includes(1.5)) endOpts.push('+1.5');
+  chipsBlock('fEnd', endOpts, state.eb === 0 ? '±0' : state.eb === 1.5 ? '+1.5' : null, null, v => { state.eb = v === null ? null : (v === '±0' ? 0 : 1.5); render(); });
+  chipsBlock('fVar', vars, state.v, v => '_'+v, v => { state.v = v; render(); });
+
+  // Result
+  const typeOrder = { '1С': 1, '1К/2С': 2, '3С': 3, '4С': 4 };
+  const res = APTS.filter(passes).sort((a, b) => {
+    const ta = typeOrder[a.t] || 99;
+    const tb = typeOrder[b.t] || 99;
+    if (ta !== tb) return ta - tb;
+    if (a.d !== b.d) return a.d - b.d;
+    if (a.eb !== b.eb) return a.eb - b.eb;
+    if (a.w !== b.w) return a.w - b.w;
+    if (a.c !== b.c) return a.c.localeCompare(b.c);
+    return (a.v || '').localeCompare(b.v || '');
+  });
+  document.getElementById('count').innerHTML = 'Найдено: <b>' + res.length + '</b> из ' + APTS.length;
+  document.getElementById('subt').textContent = APTS.length + ' квартир · глубина 3.5–7.7 м · площадь ' + A_MIN + '–' + A_MAX + ' м²';
+
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  grid.className = 'grid ' + state.view;
+  if (res.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+  } else {
+    empty.style.display = 'none';
+    grid.innerHTML = res.map((a,i) => {
+      const m = metaFor(a.n);
+      const badges = [];
+      badges.push('<span class="badge b-' + a.t.replace('/','') + '">' + a.t + '</span>');
+      if (a.eb) badges.push('<span class="badge b-torc">+торц. 1.5</span>');
+      if (a.v) {
+        badges.push('<span class="badge b-var">вариант _' + a.v + '</span>');
+        badges.push('<button class="altBtn" data-alt="' + APTS.indexOf(a) + '"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 8h12M10 4l4 4-4 4"/></svg>Другие варианты</button>');
+      }
+      if (m.size) badges.push('<span class="badge b-' + m.size + '">' + m.size + '</span>');
+      if (m.flag === 'top') badges.push('<span class="badge b-top">ТОП</span>');
+      if (m.flag === 'antitop') badges.push('<span class="badge b-antitop">Анти-ТОП</span>');
+      if (m.exc) badges.push('<span class="badge b-exc">Эксклюзив</span>');
+
+      let admin = '';
+      if (state.mode === 'admin') {
+        const on = (v, cls) => 'miniChip' + (v ? ' on' + (cls?' '+cls:'') : '');
+        admin = '<div class="adminbox">' +
+          '<div><div class="adminlabel">Размер</div><div class="miniChips">' +
+            ['XS','S','M','L'].map(sz => '<button class="' + on(m.size===sz, sz) + '" data-act="size" data-v="' + sz + '">' + sz + '</button>').join('') +
+          '</div></div>' +
+          '<div><div class="adminlabel">Флаг</div><div class="miniChips">' +
+            '<button class="' + on(m.flag==='top','top') + '" data-act="flag" data-v="top">ТОП</button>' +
+            '<button class="' + on(m.flag==='antitop','antitop') + '" data-act="flag" data-v="antitop">Анти-ТОП</button>' +
+            '<button class="' + on(m.exc,'exc') + '" data-act="exc" data-v="1">Эксклюзив</button>' +
+          '</div></div>' +
+          '<div><div class="adminlabel">Комментарий</div>' +
+            '<textarea class="note" placeholder="Заметка…" data-act="note">' + escHtml(m.note || '') + '</textarea>' +
+          '</div>' +
+        '</div>';
+      }
+
+      return '<div class="apt" data-idx="' + APTS.indexOf(a) + '">' +
+        '<div class="aptimg">' +
+          '<button class="aptCmp ' + (state.compare.indexOf(a.n) >= 0 ? 'on' : '') + '" data-cmp="' + escHtml(a.n) + '" title="Сравнить">' +
+            (state.compare.indexOf(a.n) >= 0 ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>') +
+          '</button>' +
+          '<img src="' + escHtml(imgPath(a.n)) + '" alt="' + escHtml(a.n) + '" ' +
+          'onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\';">' +
+          '<div class="noimg" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21V7l9-4 9 4v14"/><path d="M9 21V12h6v9"/></svg><div>план ' + escHtml(a.n) + '</div></div>' +
+        '</div>' +
+        '<div class="aptbody">' +
+          '<div class="aptname">' + escHtml(a.n) + '</div>' +
+          '<div class="areabox">' + fmt(a.a) + '<span>м²</span></div>' +
+          '<div class="aptmeta"><span>Глубина <b>' + fmt(a.d) + (a.eb?'+'+fmt(a.eb):'') + '</b></span><span>Ширина <b>' + fmt(a.w) + '</b></span></div>' +
+          '<div class="badges">' + badges.join('') + '</div>' +
+          admin +
+        '</div>' +
+      '</div>';
+    }).join('');
+    // Клик по карточке (не по админ-контролам) — открыть модалку
+    grid.querySelectorAll('.apt').forEach(el => {
+      el.onclick = (ev) => {
+        if (ev.target.closest('.adminbox')) return;
+        if (ev.target.closest('.altBtn')) return;
+        if (ev.target.closest('.aptCmp')) return;
+        showModal(APTS[el.dataset.idx]);
+      };
+    });
+    grid.querySelectorAll('.aptCmp').forEach(btn => {
+      btn.onclick = (ev) => toggleCompare(btn.dataset.cmp, ev);
+    });
+    grid.querySelectorAll('.altBtn').forEach(btn => {
+      btn.onclick = (ev) => {
+        ev.stopPropagation();
+        const a = APTS[btn.dataset.alt];
+        // фильтр по габаритам, все варианты
+        state.type = a.t;
+        state.d = a.d;
+        state.w = a.w;
+        state.eb = a.eb;
+        state.c = a.c;
+        state.v = null;
+        state.aMin = A_MIN;
+        state.aMax = A_MAX;
+        aMin.value = A_MIN;
+        aMax.value = A_MAX;
+        updRange();
+        // Прокрутить наверх сетки
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      };
+    });
+    // Админ-контролы
+    grid.querySelectorAll('.miniChip').forEach(btn => {
+      btn.onclick = (ev) => {
+        ev.stopPropagation();
+        const card = btn.closest('.apt');
+        const a = APTS[card.dataset.idx];
+        const m = metaFor(a.n);
+        const act = btn.dataset.act, val = btn.dataset.v;
+        if (act === 'size') m.size = (m.size === val) ? null : val;
+        if (act === 'flag') m.flag = (m.flag === val) ? null : val;
+        if (act === 'exc') m.exc = !m.exc;
+        saveMeta();
+        render();
+      };
+    });
+    grid.querySelectorAll('textarea.note').forEach(ta => {
+      ta.onclick = ev => ev.stopPropagation();
+      ta.oninput = () => {
+        const card = ta.closest('.apt');
+        const a = APTS[card.dataset.idx];
+        metaFor(a.n).note = ta.value;
+        saveMeta();
+      };
+    });
+    writeURL();
+}
+}
+
+function escHtml(s) { return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function showModal(a) {
+  const mImg = document.getElementById('mImg'); mImg.style.display=''; mImg.src = imgPath(a.n);
+  const shareBtn = document.getElementById('mShare');
+  const shareOk = document.getElementById('mShareOk');
+  shareOk.style.display = 'none';
+  shareBtn.onclick = async () => {
+    const url = shareApt(a);
+    try {
+      await navigator.clipboard.writeText(url);
+      shareOk.style.display = '';
+      setTimeout(() => { shareOk.style.display = 'none'; }, 2000);
+    } catch(e) {
+      prompt('Скопируйте ссылку:', url);
+    }
+  };
+  document.getElementById('mName').textContent = a.n;
+  document.getElementById('mArea').innerHTML = fmt(a.a) + '<span>м²</span>';
+  const parts = [
+    ['Типология', a.t],
+    ['Глубина базовая', fmt(a.d) + ' м'],
+    ['Торцевое увеличение', a.eb ? '+' + fmt(a.eb) + ' м' : '—'],
+    ['Ширина по фасаду', fmt(a.w) + ' м'],
+    ['Со стороны коридора', a.c || '—'],
+    ['Вариант планировки', a.v ? '_' + a.v : '—'],
+  ];
+  document.getElementById('mGrid').innerHTML = parts.map(([k,v]) => '<dt>' + k + '</dt><dd>' + escHtml(String(v)) + '</dd>').join('');
+  document.getElementById('modal').classList.add('open');
+}
+document.getElementById('modal').onclick = () => document.getElementById('modal').classList.remove('open');
+
+// Range slider
+const aMin = document.getElementById('areaMin');
+const aMax = document.getElementById('areaMax');
+aMin.min = A_MIN; aMin.max = A_MAX; aMin.value = A_MIN;
+aMax.min = A_MIN; aMax.max = A_MAX; aMax.value = A_MAX;
+function updRange() {
+  let lo = parseFloat(aMin.value), hi = parseFloat(aMax.value);
+  if (lo > hi) { [lo, hi] = [hi, lo]; }
+  state.aMin = lo; state.aMax = hi;
+  document.getElementById('areaMinL').textContent = fmt(lo);
+  document.getElementById('areaMaxL').textContent = fmt(hi);
+  const span = A_MAX - A_MIN;
+  const l = ((lo - A_MIN) / span) * 100;
+  const r = ((hi - A_MIN) / span) * 100;
+  const fill = document.getElementById('dualfill');
+  fill.style.left = l + '%';
+  fill.style.width = (r - l) + '%';
+  render();
+}
+aMin.oninput = updRange;
+aMax.oninput = updRange;
+
+// Mode switch
+document.querySelectorAll('#modeswitch button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#modeswitch button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  state.mode = b.dataset.m;
+  render();
+});
+
+// View tabs
+document.querySelectorAll('#viewtabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#viewtabs button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  state.view = b.dataset.v;
+  render();
+});
+
+document.getElementById('reset').onclick = () => {
+  state.type = state.d = state.w = state.c = state.eb = state.v = null;
+  state.aMin = A_MIN; state.aMax = A_MAX;
+  aMin.value = A_MIN; aMax.value = A_MAX;
+  updRange();
+};
+
+// Применить URL-фильтры при загрузке
+const urlState = readURL();
+Object.assign(state, urlState);
+if (state.aMin < A_MIN || isNaN(state.aMin)) state.aMin = A_MIN;
+if (state.aMax > A_MAX || isNaN(state.aMax)) state.aMax = A_MAX;
+aMin.value = state.aMin; aMax.value = state.aMax;
+if (state.view && state.view !== 'c3') {
+  document.querySelectorAll('#viewtabs button').forEach(b => b.classList.toggle('active', b.dataset.v === state.view));
+}
+updRange();
+render();
+
+// Если ?open=... открыть модалку для этой квартиры
+const openParam = new URLSearchParams(location.search).get('open');
+if (openParam) {
+  const found = APTS.find(a => a.n === openParam);
+  if (found) setTimeout(() => showModal(found), 300);
+}
+updateCmpFab();
+if (state.compare && state.compare.length > 0) setTimeout(() => openCompare(), 400);
+</script>
+
+<button class="cmpFab" id="cmpFab" onclick="openCompare()">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+  Сравнить <span class="cnt">0</span>
+</button>
+<div class="cmpModal" id="cmpModal" onclick="if(event.target===this) this.classList.remove('open')">
+  <div class="cmpBox">
+    <button style="position:absolute;top:14px;right:14px;background:none;border:0;color:var(--muted);cursor:pointer;padding:4px" onclick="document.getElementById('cmpModal').classList.remove('open')">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <h2>Сравнение планировок</h2>
+    <div class="sub" id="cmpSub"></div>
+    <div class="cmpTools">
+      <button class="prim" onclick="shareCompare()">Скопировать ссылку сравнения</button>
+      <button onclick="clearCompare()">Очистить</button>
+    </div>
+    <div class="cmpGrid" id="cmpGrid"></div>
+  </div>
+</div>
+
+</body>
+</html>
+
