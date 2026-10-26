@@ -1423,7 +1423,12 @@ $('view3DBtn').onclick=()=>setViewMode('3d');$('view2DBtn').onclick=()=>setViewM
 
 // initial demo: one module, parking and green zone
 // Пользователь: «при начале работы рабочая плоскость стартово должна быть пустая» — без демо-модуля/паркинга/озеленения.
-function initial(){state.selected=null;renderAll()}
+function initial(){
+ // Каждый новый запуск начинается с чистого рабочего поля. Сценарии остаются
+ // доступны в библиотеке, а план этажа добавляется только явной передачей.
+ state.objects=[];state.selected=null;state.armed=null;state.pinnedCallouts=[];state.dimensionChains=[];
+ renderAll();
+}
 // === Подложка / топооснова: загрузка, калибровка по 2 точкам с реальным расстоянием, поворот, прозрачность ===
 $('underlayLoadBtn').addEventListener('click',()=>$('underlayFile').click());
 $('underlayFile').addEventListener('change',e=>{
@@ -3891,6 +3896,5 @@ function importMetaFloor(payload){
  state.objects.push(o);state.selected=o.id;renderAll();parent.postMessage({type:'META_MASSING_IMPORTED'},'*');
 }
 window.addEventListener('message',e=>{if(e.data?.type==='META_FLOOR_IMPORT')importMetaFloor(e.data.payload)});
-try{const raw=localStorage.getItem('meta-floor-transfer-v1');if(raw)importMetaFloor(JSON.parse(raw));}catch(e){console.warn('META floor import',e)}
 window.importMetaFloor=importMetaFloor;
 })();</script>

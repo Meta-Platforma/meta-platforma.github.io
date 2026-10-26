@@ -109,6 +109,45 @@ tr:last-child td{border-bottom:none}
 .constr-row input{flex:0 0 auto;width:44px;min-width:0;padding:3px 4px;border:1px solid var(--bs);border-radius:4px;font-size:11px}
 .constr-row input[type=checkbox]{width:auto;flex:0 0 auto;margin:0}
 .constr-row select{flex:1 1 90px;min-width:0}
+
+/* META workspace refresh: quiet architectural canvas, persistent criteria and live metrics. */
+:root{--bg:#f5f6f4;--surface:#fff;--surface-2:#f7f8f6;--text:#171916;--text-sec:#626761;--text-muted:#959a94;--border:#dfe2dc;--bs:#cdd1ca;--accent:#1768d4}
+body{font-family:Inter,"Segoe UI",Arial,sans-serif;background:var(--bg)}
+header{min-height:54px;padding:7px 14px;border-bottom:1px solid #d9ddd6;gap:14px;box-shadow:none}
+header h1{font-family:"Arial Narrow","Roboto Condensed",Inter,sans-serif;font-size:17px;font-weight:650;letter-spacing:-.02em}
+.mtabs{padding:3px;background:#eef0ec;border-radius:7px}
+.mtab{padding:7px 13px;border-radius:5px;font-size:11px}
+.mtab.active{box-shadow:none;color:#111;background:#fff}
+.btn{min-height:30px;padding:6px 10px;border-radius:5px;border-color:#d2d6cf;background:#fff}
+.btn:hover{border-color:#8d938b;background:#f6f7f5}
+.meta-nav{color:var(--accent);border-color:#a9c7ef;background:#f5f9ff}
+.sidebar{width:330px;border-right-color:#d9ddd6;background:#fff}
+.sidebar::before{content:"БИБЛИОТЕКА И ПАРАМЕТРЫ";display:block;padding:13px 14px 9px;color:#858b84;font-size:9px;font-weight:700;letter-spacing:.12em;border-bottom:1px solid var(--border);flex:0 0 auto}
+.stabs{padding:0 10px;border-bottom:0}
+.stab{padding:10px 8px 8px;text-align:left;font-weight:650}
+.filters{padding:12px 14px;background:#fbfcfa}
+.flabel{font-weight:700;letter-spacing:.1em;margin-bottom:6px}
+.chips{gap:5px;margin-bottom:10px}
+.chip{padding:4px 9px;border-radius:4px;background:#fff}
+.chip.active{background:#171916;border-color:#171916}
+.liblist{padding:10px}
+.litem{min-height:36px;padding:7px 8px;margin-bottom:6px;border-radius:6px;background:#fff}
+.litem:hover{border-color:#7aa9e7;box-shadow:0 0 0 2px #1768d410}
+.cvwrap{background-color:#fafbf9;background-image:linear-gradient(#e8ebe6 1px,transparent 1px),linear-gradient(90deg,#e8ebe6 1px,transparent 1px);background-size:24px 24px}
+.hint{top:12px;padding:6px 12px;border:0;border-radius:5px;box-shadow:0 2px 12px #18201812;background:rgba(255,255,255,.92)}
+.legend{border-radius:5px;box-shadow:0 3px 16px #18201810}
+.props{width:270px;border-left-color:#d9ddd6;background:#fff}
+.phead{padding:13px 14px 10px;font-weight:700;letter-spacing:.1em;background:#fbfcfa}
+.pbody{padding:14px}
+.props .tep-ov{position:static;max-width:none;width:auto;margin:0;padding:14px;border:0;border-bottom:1px solid var(--border);border-radius:0;background:#fff;backdrop-filter:none;pointer-events:auto}
+.props .tep-ov::before{content:"КЛЮЧЕВЫЕ ТЭП";display:block;margin-bottom:9px;color:#858b84;font-size:9px;font-weight:700;letter-spacing:.12em}
+.props .tep-ov th,.props .tep-ov td{padding:3px 4px}
+.props .tep-ov th:first-child,.props .tep-ov td:first-child{padding-left:0}
+.props .tep-ov th:last-child,.props .tep-ov td:last-child{padding-right:0}
+.zctrl{bottom:14px;right:14px}
+.zb{border-radius:4px;box-shadow:0 2px 10px #18201810}
+.catalog-cloud{border-radius:8px;box-shadow:0 18px 55px rgba(18,25,18,.16)}
+@media(max-width:1100px){.sidebar{width:290px}.props{width:235px}.toolbar .btn:nth-of-type(n+5){display:none}}
 </style>
 </head>
 <body>
@@ -162,6 +201,7 @@ tr:last-child td{border-bottom:none}
     <div class="pbody" id="pbody"><div class="empty-h">Выберите элемент</div></div>
   </div>
 </div>
+<script>document.querySelector('.props').insertBefore(document.getElementById('tep-ov'),document.querySelector('.props .phead'));</script>
 <div class="main" id="main-tep" style="display:none">
   <div class="tep-panel" id="tep-content"></div>
 </div>
