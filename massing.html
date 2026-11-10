@@ -3888,5 +3888,6 @@ for(const[id,value]of [['gfxBrightness21',90],['gfxContrast21',170],['gfxSaturat
 const before=rebuild3D;rebuild3D=function(){before();if(typeof three3d==='undefined'||!three3d)return;for(const m of three3d.group.children){const o=state.objects.find(o=>o.id===m.userData?.objId);if(o?.kind==='siteboundary'&&m.isMesh){m.visible=false;const points=objectWorldPoints(o).map(p=>new THREE.Vector3(p[0],objBaseElevation(o,3)+.2,p[1]));const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points),new THREE.LineBasicMaterial({color:0x0f7a52}));line.userData.siteOutline44=true;three3d.group.add(line);}}};
 window.graphics44={plan};renderAll();
 })();
+</script>
 <script src="meta-massing-bridge.js"></script>
 </body></html>
