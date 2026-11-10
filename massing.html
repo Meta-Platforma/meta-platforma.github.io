@@ -1892,7 +1892,7 @@ const _rebuild3D22 = rebuild3D;
 rebuild3D = function(){ _rebuild3D22(); addEntourage22(); };
 const graphicBtn = [...document.querySelectorAll('.stagebar .btn')].find(b=>/Графика 3D/i.test(b.textContent||''));
 if(graphicBtn) graphicBtn.classList.add('pressed');
-setTimeout(()=>{ applyScenario22(DEFAULT_SCENARIO_22); renderAll(); }, 60);
+// Демонстрационный сценарий хранится только как справочный пресет и не загружается при старте.
 })();
 </script>
 
@@ -3868,7 +3868,8 @@ const rebuild=rebuild3D;rebuild3D=function(){rebuild();buildTraffic();};frame=re
 // The legacy quick shadow-score pass is deterministic for an unchanged scene.
 const score=calcSunScores;let scoreKey='';calcSunScores=function(){const k=JSON.stringify([state.objects.filter(o=>o.kind==='building').map(o=>[o.id,o.x,o.y,o.w,o.h,o.rot,o.points,o.floors,o.groundFloorUse]),state.sun33,document.getElementById('sunDate')?.value,document.getElementById('floorHeight')?.value]);if(k!==scoreKey){score();scoreKey=k;}};
 function cleanHeadings(){document.title='МЕТАРАЙОН';for(const el of document.querySelectorAll('.brand span,.brand strong,.panel h2,.panel h3,.panel h4')){if(el.children.length)continue;el.textContent=el.textContent.replace(/\s*[·—–-]?\s*v\d+(?:\.\d+)*\b/gi,'').trim();}}
-const render=renderAll;renderAll=function(){render();cleanHeadings();};cleanHeadings();
+function scaleInsolationGraphics44(){if(typeof three3d==='undefined'||!three3d)return;const front=three3d.group.getObjectByName('front33');front?.traverse(o=>{if(o.userData?.scaledVisual44)return;if(o.geometry?.type==='BoxGeometry')o.scale.set(1,5,5);else if(o.geometry?.type==='SphereGeometry')o.scale.setScalar(.1);else return;o.userData.scaledVisual44=true;});const grid=three3d.group.getObjectByName('grid34');grid?.traverse(o=>{if(o.geometry?.type==='SphereGeometry'&&!o.userData?.scaledVisual44){o.scale.multiplyScalar(.1);o.userData.scaledVisual44=true;}});}
+const render=renderAll;renderAll=function(){render();cleanHeadings();scaleInsolationGraphics44();if(typeof three3d!=='undefined'&&three3d)three3d.render();};cleanHeadings();
 const save=serialize;serialize=function(){const d=save();d.meta.version='0.44';return d;};
 window.traffic43={pathInfo,pointAt,batch,build:buildTraffic,update:updateTraffic,count:()=>cars.length,dispose};
 if(typeof three3d!=='undefined'&&three3d&&document.getElementById('view3d')?.style.display==='block')rebuild3D();
@@ -3880,9 +3881,9 @@ function plan(){for(const g of objLayer.querySelectorAll('[data-id]')){const o=s
  for(const el of svg.querySelectorAll('text'))if(!el.dataset.smaller44){const px=parseFloat(getComputedStyle(el).fontSize)||10;el.style.setProperty('font-size',px/2+'px','important');el.dataset.smaller44='1';}
  for(const el of svg.querySelectorAll('circle.vertexHandle,circle.edgeHandle,circle.roadNode,circle.roadGhostNode,circle.rotateHandle,[data-quarter-corner],[data-quarter-rotate],[data-quarter-boundary]'))if(!el.dataset.smaller44){el.setAttribute('r',Number(el.getAttribute('r'))/2);el.dataset.smaller44='1';}
  for(const el of svg.querySelectorAll('rect.resizeHandle'))if(!el.dataset.smaller44){for(const axis of ['x','y']){const size=axis==='x'?'width':'height',v=Number(el.getAttribute(size));el.setAttribute(axis,Number(el.getAttribute(axis))+v/4);el.setAttribute(size,v/2);}el.dataset.smaller44='1';}
- for(const el of svg.querySelectorAll('.shape,.dimLine,.rotateHandleLine,#quarterOutline37 line,#quarterOutline37 polygon,.roadParkingSlot')){if(el.classList.contains('roadMain'))continue;el.style.setProperty('stroke-width',el.closest('.selected')?'1px':'.5px','important');}
+ for(const el of svg.querySelectorAll('.shape,.dimLine,.rotateHandleLine,#quarterOutline37 line,#quarterOutline37 polygon,.roadParkingSlot')){if(el.classList.contains('roadMain'))continue;el.style.setProperty('stroke-width',el.closest('.selected')?'5px':'2.5px','important');}
 }
-const style=document.createElement('style');style.textContent='.obj.selected .shape{stroke-width:1px!important}.obj .shape{stroke-width:.5px!important}.roadSideStrip{opacity:1!important}.vertexHandle,.edgeHandle,.roadNode,.rotateHandle{stroke-width:1px!important}';document.head.append(style);
+const style=document.createElement('style');style.textContent='.obj.selected .shape{stroke-width:5px!important}.obj .shape{stroke-width:2.5px!important}.roadSideStrip{opacity:1!important}.vertexHandle,.edgeHandle,.roadNode,.rotateHandle{stroke-width:5px!important}#front33 line{stroke-width:15px!important}#front33 circle{r:.032px!important}#gridPlan34 circle{r:.06px!important;stroke-width:.1px!important}';document.head.append(style);
 // Leave road/side-strip widths intact: they encode actual physical widths, not outline weight.
 const previous=renderAll;renderAll=function(){previous();plan();};
 for(const[id,value]of [['gfxBrightness21',90],['gfxContrast21',170],['gfxSaturation21',175]]){const input=document.getElementById(id);if(input){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));}}
@@ -3892,4 +3893,5 @@ window.graphics44={plan};renderAll();
 </script>
 <script src="meta-massing-bridge.js"></script>
 </body></html>
+
 
