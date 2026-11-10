@@ -1535,7 +1535,7 @@ $('underlayRemoveBtn').addEventListener('click',()=>{if(!state.underlay)return;c
    return `<div><b>Площадь:</b> ${fmt(area)} м²</div><div><b>Слой 3D:</b> ${modelLayer(o)}</div>`; };
  renderBlockCallout = function(){ const el=$('blkCallout'); if(!state.calloutId){el.style.display='none'; return} const o=state.objects.find(x=>x.id===state.calloutId); if(!o){state.calloutId=null; el.style.display='none'; return} const pinned=state.pinnedCallouts.some(p=>p.objId===o.id); let controls=''; if(o.type==='BLOK'){ controls=`<div class="coRow"><label>Этажность</label><input id="coFloors" type="number" min="1" max="40" value="${o.floors}"></div><div class="coRow"><label>1-й этаж</label><select id="coGround"><option value="residential" ${o.groundFloorUse!=='commercial'?'selected':''}>Жилой</option><option value="commercial" ${o.groundFloorUse==='commercial'?'selected':''}>Коммерция</option></select></div><div class="coRow"><label>Средняя площадь квартиры, м²</label><input id="coAvgApt" type="number" min="40" max="60" step="0.5" value="${numAttr(o.avgApt,1)}"></div>`; } else if(['P_UG','P_AG'].includes(o.type)){ controls=`<div class="coRow"><label>Тип</label><select id="coParkType"><option value="P_UG" ${o.type==='P_UG'?'selected':''}>Подземный</option><option value="P_AG" ${o.type==='P_AG'?'selected':''}>Надземный</option></select></div><div class="coRow"><label>Уровни</label><input id="coLevels" type="number" min="1" max="12" value="${o.levels||1}"></div>`; } else if(o.type==='RAMP'){ controls=`<div class="coRow"><label>Тип</label><select id="coRampMode"><option value="one" ${o.rampMode!=='two'?'selected':''}>Однопутная</option><option value="two" ${o.rampMode==='two'?'selected':''}>Двухпутная</option></select></div>`; }
    el.innerHTML=`<button class="coClose" id="coCloseBtn" title="Закрыть">×</button><div class="coTitle">${o.label}</div>${controls}<div class="coStats">${calloutStatsHtml(o)}</div><div class="coRow" style="margin-top:7px;padding-top:7px;border-top:1px solid var(--line)"><label>📌 Закрепить на поле</label><input type="checkbox" id="coPin" ${pinned?'checked':''}></div><p class="note" style="margin:4px 0 0">Перетащите облако за заголовок.</p>`;
-   el.style.display='block'; const pos=state.calloutPos||{x:140,y:140},off=state.calloutOffset||{x:0,y:0},w=el.offsetWidth||250,h=el.offsetHeight||220; el.style.left=Math.max(8,Math.min(window.innerWidth-w-8,pos.x+14+off.x))+'px'; el.style.top=Math.max(8,Math.min(window.innerHeight-h-8,pos.y-h/2+off.y))+'px'; $('coCloseBtn').onclick=()=>{state.calloutId=null;renderAll()}; if($('coFloors'))$('coFloors').addEventListener('change',()=>{checkpoint();o.floors=Math.max(1,Number($('coFloors').value)||1);syncBlockMetrics(o);renderAll()}); if($('coGround'))$('coGround').addEventListener('change',()=>{checkpoint();o.groundFloorUse=$('coGround').value==='commercial'?'commercial':'residential';syncBlockMetrics(o);renderAll()}); if($('coAvgApt'))$('coAvgApt').addEventListener('change',()=>{checkpoint();o.avgApt=Math.max(40,Math.min(60,Number($('coAvgApt').value)||50));syncBlockMetrics(o);renderAll()}); if($('coLevels'))$('coLevels').addEventListener('change',()=>{checkpoint();o.levels=Math.max(1,Number($('coLevels').value)||1);renderAll()}); if($('coParkType'))$('coParkType').addEventListener('change',()=>{checkpoint();applyParkingSubtype(o,$('coParkType').value,true);renderAll()}); if($('coRampMode'))$('coRampMode').addEventListener('change',()=>{checkpoint();o.rampMode=$('coRampMode').value;o.rampWidth=o.rampMode==='two'?8:5;syncRamp(o);renderAll()}); $('coPin').addEventListener('change',()=>{ checkpoint(); if($('coPin').checked){ if(!state.pinnedCallouts.some(p=>p.objId===o.id)){ const activeLeft=Math.max(8,Math.min(window.innerWidth-w-8,pos.x+14+off.x)),activeTop=Math.max(8,Math.min(window.innerHeight-h-8,pos.y-h/2+off.y)); const scr={x:Math.min(window.innerWidth-w-8,activeLeft+w+20),y:activeTop}; const pt=svg.createSVGPoint();n=e=>startCalloutDrag(e,(dx,dy)=>{state.calloutOffset={x:(off.x||0)+dx,y:(off.y||0)+dy};renderBlockCallout()}); };
+   el.style.display='block'; const pos=state.calloutPos||{x:140,y:140},off=state.calloutOffset||{x:0,y:0},w=el.offsetWidth||250,h=el.offsetHeight||220; el.style.left=Math.max(8,Math.min(window.innerWidth-w-8,pos.x+14+off.x))+'px'; el.style.top=Math.max(8,Math.min(window.innerHeight-h-8,pos.y-h/2+off.y))+'px'; $('coCloseBtn').onclick=()=>{state.calloutId=null;renderAll()}; if($('coFloors'))$('coFloors').addEventListener('change',()=>{checkpoint();o.floors=Math.max(1,Number($('coFloors').value)||1);syncBlockMetrics(o);renderAll()}); if($('coGround'))$('coGround').addEventListener('change',()=>{checkpoint();o.groundFloorUse=$('coGround').value==='commercial'?'commercial':'residential';syncBlockMetrics(o);renderAll()}); if($('coAvgApt'))$('coAvgApt').addEventListener('change',()=>{checkpoint();o.avgApt=Math.max(40,Math.min(60,Number($('coAvgApt').value)||50));syncBlockMetrics(o);renderAll()}); if($('coLevels'))$('coLevels').addEventListener('change',()=>{checkpoint();o.levels=Math.max(1,Number($('coLevels').value)||1);renderAll()}); if($('coParkType'))$('coParkType').addEventListener('change',()=>{checkpoint();applyParkingSubtype(o,$('coParkType').value,true);renderAll()}); if($('coRampMode'))$('coRampMode').addEventListener('change',()=>{checkpoint();o.rampMode=$('coRampMode').value;o.rampWidth=o.rampMode==='two'?8:5;syncRamp(o);renderAll()}); $('coPin').addEventListener('change',()=>{ checkpoint(); if($('coPin').checked){ if(!state.pinnedCallouts.some(p=>p.objId===o.id)){ const activeLeft=Math.max(8,Math.min(window.innerWidth-w-8,pos.x+14+off.x)),activeTop=Math.max(8,Math.min(window.innerHeight-h-8,pos.y-h/2+off.y)); const scr={x:Math.min(window.innerWidth-w-8,activeLeft+w+20),y:activeTop}; const pt=svg.createSVGPoint(); pt.x=scr.x+w/2; pt.y=scr.y+h/2; const wp=pt.matrixTransform(svg.getScreenCTM().inverse()); state.pinnedCallouts.push({objId:o.id,x:wp.x,y:wp.y}); } } else state.pinnedCallouts=state.pinnedCallouts.filter(p=>p.objId!==o.id); renderAll() }); el.onpointerdown=e=>startCalloutDrag(e,(dx,dy)=>{state.calloutOffset={x:(off.x||0)+dx,y:(off.y||0)+dy};renderBlockCallout()}); };
  renderPinnedCallouts = function(){ const wrap=$('pinnedCalloutsLayer'),leaders=$('calloutLeaders'); wrap.innerHTML=''; leaders.innerHTML=''; state.pinnedCallouts.forEach(pin=>{ const o=state.objects.find(x=>x.id===pin.objId); if(!o)return; const ln=document.createElementNS(ns,'line'); ln.setAttribute('x1',o.x);ln.setAttribute('y1',o.y);ln.setAttribute('x2',pin.x);ln.setAttribute('y2',pin.y);ln.setAttribute('stroke','#0f7a52');ln.setAttribute('stroke-width','1.4');ln.setAttribute('stroke-dasharray','5 3');ln.setAttribute('vector-effect','non-scaling-stroke');leaders.appendChild(ln); const dot=document.createElementNS(ns,'circle');dot.setAttribute('cx',pin.x);dot.setAttribute('cy',pin.y);dot.setAttribute('r','2.5');dot.setAttribute('fill','#0f7a52');leaders.appendChild(dot); const scr=worldToScreen(pin.x,pin.y); const div=document.createElement('div');div.className='blkCallout pinned'; div.innerHTML=`<button class="coClose" title="Открепить">×</button><div class="coTitle">${o.label}</div><div class="coStats">${calloutStatsHtml(o)}</div>`; wrap.appendChild(div); const w=div.offsetWidth||250,h=div.offsetHeight||110; div.style.left=(scr.x-w/2)+'px';div.style.top=(scr.y-h/2)+'px'; div.querySelector('.coClose').onclick=()=>{state.pinnedCallouts=state.pinnedCallouts.filter(p=>p.objId!==pin.objId);renderAll()}; div.onpointerdown=e=>{ const startWorld={x:pin.x,y:pin.y}; startCalloutDrag(e,(dx,dy)=>{ const k=svg.getScreenCTM().a||1; pin.x=startWorld.x+dx/k; pin.y=startWorld.y+dy/k; renderPinnedCallouts(); }); }; }); };
  const _renderInspectorOld = renderInspector;
  renderInspector = function(){ _renderInspectorOld(); const o=selected(); if(!o) return; const root=$('inspector'); if(!root) return; if(o.kind==='parking' && ['P_UG','P_AG'].includes(o.type) && !root.querySelector('[data-extra="parkType"]')){ const row=document.createElement('div'); row.className='frow'; row.dataset.extra='parkType'; row.innerHTML=`<label>Тип паркинга</label><select id="insParkType"><option value="P_UG" ${o.type==='P_UG'?'selected':''}>Подземный</option><option value="P_AG" ${o.type==='P_AG'?'selected':''}>Надземный</option></select>`; root.insertBefore(row, root.querySelector('.sep')||root.lastElementChild); $('insParkType').addEventListener('change',()=>{checkpoint(); applyParkingSubtype(o,$('insParkType').value,true); renderAll()}); }
@@ -1578,7 +1578,214 @@ $('underlayRemoveBtn').addEventListener('click',()=>{if(!state.underlay)return;c
     const wrap=document.createElement('div');wrap.className='gfxWrap';
     wrap.innerHTML=`<button class="btn dark" id="gfxBtn21">Графика 3D ▾</button><div class="gfxPanel" id="gfxPanel21"><div class="gfxTitle">Параметры графики 3D</div>
       <div class="gfxRow"><label>Яркость</label><input id="gfxBrightness21" type="range" min="50" max="130" step="1" value="86"><span class="gfxVal" id="gfxBrightnessVal21">86%</span></div>
-      <div class="gfxRow"><label>Контраст</label><input id="gfxContrast21" type="range" min="80" max="200" step="1" valuif($('sOpenMM')) $('sOpenMM').textContent=`Открытый ${fmt(s.openMM)} ММ`;
+      <div class="gfxRow"><label>Контраст</label><input id="gfxContrast21" type="range" min="80" max="200" step="1" value="152"><span class="gfxVal" id="gfxContrastVal21">152%</span></div>
+      <div class="gfxRow"><label>Насыщенность</label><input id="gfxSaturation21" type="range" min="50" max="200" step="1" value="148"><span class="gfxVal" id="gfxSaturationVal21">148%</span></div>
+      <div class="gfxCheck"><label><input id="gfxOutline21" type="checkbox" checked> Абрис элементов</label><label>Толщина <input id="gfxOutlineThickness21" type="number" min="0.4" max="3" step="0.1" value="1.0" style="width:58px"></label></div>
+      <div class="gfxNote">Базовый пресет: exposure ≈ −0,4 EV; Hemisphere 0,55; Ambient 0,18; Directional 1,05.</div>
+      <button class="btn soft" id="gfxReset21" style="width:100%;margin-top:9px">Сбросить к пресету</button></div>`;
+    actions.insertBefore(wrap, actions.children[3]||null);
+    $('gfxBtn21').onclick=e=>{e.stopPropagation();$('gfxPanel21').classList.toggle('open')};
+    document.addEventListener('click',e=>{if(!wrap.contains(e.target))$('gfxPanel21').classList.remove('open')});
+  }
+  function applyGfxFilter21(rebuild=false){
+    const c=$('view3d')?.querySelector('canvas');
+    if(c)c.style.filter=`brightness(${renderPrefs21.brightness/100}) contrast(${renderPrefs21.contrast/100}) saturate(${renderPrefs21.saturation/100})`;
+    if(three3d?.renderer)three3d.renderer.toneMappingExposure=.78;
+    if(rebuild && $('view3d')?.style.display==='block' && typeof rebuild3D==='function')rebuild3D();
+  }
+  function syncGfxUI21(){
+    if(!$('gfxBrightness21'))return;
+    $('gfxBrightness21').value=renderPrefs21.brightness;$('gfxContrast21').value=renderPrefs21.contrast;$('gfxSaturation21').value=renderPrefs21.saturation;$('gfxOutline21').checked=renderPrefs21.outline;$('gfxOutlineThickness21').value=renderPrefs21.outlineThickness;
+    $('gfxBrightnessVal21').textContent=renderPrefs21.brightness+'%';$('gfxContrastVal21').textContent=renderPrefs21.contrast+'%';$('gfxSaturationVal21').textContent=renderPrefs21.saturation+'%';
+  }
+  if($('gfxBrightness21')){
+    $('gfxBrightness21').oninput=()=>{renderPrefs21.brightness=Number($('gfxBrightness21').value);syncGfxUI21();applyGfxFilter21(false)};
+    $('gfxContrast21').oninput=()=>{renderPrefs21.contrast=Number($('gfxContrast21').value);syncGfxUI21();applyGfxFilter21(false)};
+    $('gfxSaturation21').oninput=()=>{renderPrefs21.saturation=Number($('gfxSaturation21').value);syncGfxUI21();applyGfxFilter21(false)};
+    $('gfxOutline21').onchange=()=>{renderPrefs21.outline=$('gfxOutline21').checked;applyGfxFilter21(true)};
+    $('gfxOutlineThickness21').onchange=()=>{renderPrefs21.outlineThickness=Math.max(.4,Math.min(3,Number($('gfxOutlineThickness21').value)||1));syncGfxUI21();applyGfxFilter21(true)};
+    $('gfxReset21').onclick=()=>{Object.assign(renderPrefs21,{brightness:86,contrast:152,saturation:148,outline:true,outlineThickness:1});syncGfxUI21();applyGfxFilter21(true)};
+    syncGfxUI21();
+  }
+
+  // ---- Ramp: explicit placement button and placement over existing parking ----
+  const rampPanel=$('rampPanel');
+  if(rampPanel && !$('placeRampBtn21')){
+    const b=document.createElement('button');b.id='placeRampBtn21';b.className='btn primary rampPlaceBtn';b.textContent='Установить рампу';
+    const note=rampPanel.querySelector('.note');rampPanel.insertBefore(b,note||null);
+    b.onclick=()=>arm('RAMP');
+  }
+  function syncRamp21(o){
+    if(!o||o.type!=='RAMP')return;
+    o.kind='parking';o.rampMode=o.rampMode||'one';o.rampLen=Number(o.rampLen)||22;o.rampWidth=Number(o.rampWidth)||(o.rampMode==='two'?8:5);o.rampHeight=Number(o.rampHeight)||4;o.rampSlope=Number(o.rampSlope)||18;o.w=o.rampLen;o.h=o.rampWidth;
+    o.points=defaultPolyPoints(o.w,o.h);syncPolyBounds(o);o.label=o.rampMode==='two'?'РАМПА 2П':'РАМПА 1П';o.fill='#e4d8c3';o.stroke='#8e7656';
+  }
+  state.objects.filter(o=>o.type==='RAMP').forEach(syncRamp21);
+  const baseObj21Prev=baseObj;
+  baseObj=function(type,x,y,extra={}){const o=baseObj21Prev(type,x,y,extra);if(o?.type==='RAMP')syncRamp21(o);return o};
+  const modelLayer21Prev=modelLayer;
+  modelLayer=function(o){if(o?.type==='RAMP')return 3;return modelLayer21Prev(o)};
+  // Capture click BEFORE object click handler so a ramp can be placed on top of parking/open parking.
+  svg.addEventListener('click',e=>{
+    if(state.armed!=='RAMP')return;
+    e.preventDefault();e.stopImmediatePropagation();checkpoint();const p=svgPoint(e);const o=add('RAMP',p.x,p.y);syncRamp21(o);state.armed=null;document.querySelectorAll('.tool').forEach(b=>b.classList.remove('active'));renderAll();
+  },true);
+
+  // ---- Road geometry helpers ----
+  const PARK_CLEAR21=10;
+  function segProject21(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy||1,t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/len2,q=[a[0]+dx*t,a[1]+dy*t];return {t,dist:Math.hypot(q[0]-p[0],q[1]-p[1])}}
+  function offsetPolyline21(pts,offset){
+    if(!pts||pts.length<2)return pts||[];const normals=[];
+    for(let i=1;i<pts.length;i++){const dx=pts[i][0]-pts[i-1][0],dy=pts[i][1]-pts[i-1][1],len=Math.hypot(dx,dy)||1;normals.push([-dy/len,dx/len])}
+    const out=[];
+    for(let i=0;i<pts.length;i++){
+      if(i===0){out.push([pts[i][0]+normals[0][0]*offset,pts[i][1]+normals[0][1]*offset]);continue}
+      if(i===pts.length-1){const n=normals[normals.length-1];out.push([pts[i][0]+n[0]*offset,pts[i][1]+n[1]*offset]);continue}
+      const n1=normals[i-1],n2=normals[i],m=[n1[0]+n2[0],n1[1]+n2[1]],ml=Math.hypot(m[0],m[1]);if(ml<1e-6){out.push([pts[i][0]+n2[0]*offset,pts[i][1]+n2[1]*offset]);continue}m[0]/=ml;m[1]/=ml;const d=Math.max(.32,Math.abs(m[0]*n2[0]+m[1]*n2[1]));const sc=offset/d;out.push([pts[i][0]+m[0]*sc,pts[i][1]+m[1]*sc])
+    }
+    return out;
+  }
+  function roundedSample21(pts,radius,steps=5){
+    if(!pts||pts.length<2)return pts||[];if(pts.length===2)return pts.map(p=>p.slice());const out=[pts[0].slice()];
+    for(let i=1;i<pts.length-1;i++){
+      const A=pts[i-1],B=pts[i],C=pts[i+1];let u1=[A[0]-B[0],A[1]-B[1]],u2=[C[0]-B[0],C[1]-B[1]],l1=Math.hypot(...u1),l2=Math.hypot(...u2);if(l1<.01||l2<.01){out.push(B.slice());continue}u1=[u1[0]/l1,u1[1]/l1];u2=[u2[0]/l2,u2[1]/l2];const dot=Math.max(-.999,Math.min(.999,u1[0]*u2[0]+u1[1]*u2[1])),theta=Math.acos(dot),trim=Math.min(radius/Math.tan(theta/2),l1*.42,l2*.42);if(!isFinite(trim)||trim<.2){out.push(B.slice());continue}const p1=[B[0]+u1[0]*trim,B[1]+u1[1]*trim],p2=[B[0]+u2[0]*trim,B[1]+u2[1]*trim];out.push(p1);for(let k=1;k<=steps;k++){const t=k/steps,mt=1-t;out.push([mt*mt*p1[0]+2*mt*t*B[0]+t*t*p2[0],mt*mt*p1[1]+2*mt*t*B[1]+t*t*p2[1]])}
+    }
+    out.push(pts[pts.length-1].slice());return out;
+  }
+  function roadParkingCenters21(o,si,key){return window.roadParkingCentersOnSegment(o,si,key);}
+  roadParkingStats=function(o){if(!o||o.type!=='ROAD_PATH')return{total:0,left:0,right:0,length:0,usable:0};const pts=roadWorldPoints(o);let left=0,right=0,usable=0;for(let i=0;i<pts.length-1;i++){const segLen=Math.hypot(pts[i+1][0]-pts[i][0],pts[i+1][1]-pts[i][1]);usable+=Math.max(0,segLen-(i>0?PARK_CLEAR21:0)-(i<pts.length-2?PARK_CLEAR21:0));if(o.road?.left?.enabled!==false){if(o.road?.left?.perp)left+=roadParkingCenters21(o,i,'perp').length;else if(o.road?.left?.parallel)left+=roadParkingCenters21(o,i,'parallel').length}if(o.road?.right?.enabled!==false){if(o.road?.right?.perp)right+=roadParkingCenters21(o,i,'perp').length;else if(o.road?.right?.parallel)right+=roadParkingCenters21(o,i,'parallel').length}}return{total:left+right,left,right,length:polylineLength(pts),usable}};
+
+  function bandDefs21(o,sideName){const sign=sideName==='left'?-1:1,items=roadCrossSectionItems(o.road?.[sideName]),defs=roadOffsetSegments(o,sign,items);return defs.map(d=>({...d,sign}))}
+  function drawBand21(parent,o,def){const pts=o.roadPoints||[],off=offsetPolyline21(pts,def.sign*def.mid);if(off.length<2)return;const p=document.createElementNS(ns,'path');p.setAttribute('d',roadRoundedPathD(off,Number(o.road?.radius)||6));p.setAttribute('fill','none');p.setAttribute('stroke',roadStripColor(def.item.type));p.setAttribute('stroke-width',def.item.w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.setAttribute('class','roadSideStrip');parent.appendChild(p)}
+  function drawParking21(parent,o,sideName){const pts=o.roadPoints||[],sign=sideName==='left'?-1:1,defs=bandDefs21(o,sideName),park=defs.find(d=>d.item.type==='parking');if(!park)return;for(let si=0;si<pts.length-1;si++){const a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.1)continue;const nx=-dy/len*sign,ny=dx/len*sign,key=park.item.key,centers=roadParkingCenters21(o,si,key),depth=key==='perp'?5.3:2.5,along=key==='perp'?2.5:6;for(const d of centers){const tt=d/len,cx=a[0]+dx*tt+nx*park.mid,cy=a[1]+dy*tt+ny*park.mid,ux=dx/len,uy=dy/len,hx=ux*along/2,hy=uy*along/2,wx=nx*depth/2,wy=ny*depth/2,rect=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],rp=document.createElementNS(ns,'polygon');rp.setAttribute('points',rect.map(q=>q.join(',')).join(' '));rp.setAttribute('class','roadParkingSlot');parent.appendChild(rp)}}}
+  function drawLane21(parent,o){const p=document.createElementNS(ns,'path');p.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));p.setAttribute('fill','none');p.setAttribute('stroke','#747d82');p.setAttribute('stroke-width',Number(o.road?.laneWidth)||6);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.dataset.id=o.id;parent.appendChild(p);const lane=(Number(o.road?.laneWidth)||6)/2,R=Number(o.road?.radius)||6;for(const w of roadIntersections(o)){const c=document.createElementNS(ns,'circle');c.setAttribute('cx',w[0]-o.x);c.setAttribute('cy',w[1]-o.y);c.setAttribute('r',R+lane);c.setAttribute('fill','#747d82');parent.appendChild(c)}}
+  function drawMarkings21(parent,o){const center=document.createElementNS(ns,'path');center.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));center.setAttribute('fill','none');center.setAttribute('stroke','#f7fafb');center.setAttribute('stroke-width','.36');center.setAttribute('stroke-dasharray','5 4');parent.appendChild(center);const locInts=roadIntersections(o).map(p=>[p[0]-o.x,p[1]-o.y]),pts=o.roadPoints||[],laneW=Number(o.road?.laneWidth)||6;for(let si=0;si<pts.length-1;si++){const a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<5)continue;const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;for(const ip of locInts){const q=segProject21(ip,a,b);if(q.t<0||q.t>1||q.dist>.8)continue;const d=q.t*len+(q.t<.5?3.2:-3.2),stripeN=5,step=.7,sw=.34,span=laneW+.8;for(let k=-2;k<=2;k++){const s=d+k*step;if(s<1||s>len-1)continue;const cx=a[0]+ux*s,cy=a[1]+uy*s,hx=ux*sw/2,hy=uy*sw/2,wx=nx*span/2,wy=ny*span/2,poly=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],rp=document.createElementNS(ns,'polygon');rp.setAttribute('points',poly.map(v=>v.join(',')).join(' '));rp.setAttribute('fill','#fff');parent.appendChild(rp)}}}}
+  function attachRoadInteraction21(parent,o){const hit=document.createElementNS(ns,'path');hit.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));hit.setAttribute('fill','none');hit.setAttribute('stroke','rgba(0,0,0,0)');hit.setAttribute('stroke-width',Math.max(12,roadTotalWidth(o)));hit.style.pointerEvents='stroke';hit.dataset.id=o.id;hit.addEventListener('pointerdown',startDrag);hit.addEventListener('click',e=>{if(siteDraw||underlayCalib||rulerMode||roadDraw)return;e.stopPropagation();state.selected=o.id;state.calloutId=o.id;state.calloutPos={x:e.clientX,y:e.clientY};state.calloutOffset=null;loadRoadConfigToUI(o);renderAll()});parent.appendChild(hit);const st=roadParkingStats(o),pts=o.roadPoints||[],mid=pts[Math.floor((pts.length-1)/2)]||[0,0],tx=document.createElementNS(ns,'text');tx.setAttribute('x',mid[0]);tx.setAttribute('y',mid[1]-8);tx.setAttribute('text-anchor','middle');tx.setAttribute('class','roadLabel');tx.textContent=`Проезд ${fmt(o.road?.laneWidth||6,1)} м · ${fmt(st.total)} ММ · L ${fmt(st.length,1)} м`;parent.appendChild(tx);if(o.id===state.selected)pts.forEach((p,i)=>{const h=document.createElementNS(ns,'circle');h.setAttribute('cx',p[0]);h.setAttribute('cy',p[1]);h.setAttribute('r',4);h.setAttribute('class','roadNode');h.addEventListener('pointerdown',e=>startRoadVertexDrag(e,o.id,i));parent.appendChild(h)})}
+  function renderRoadNetwork21(roads){
+    const groups={green:document.createElementNS(ns,'g'),parking:document.createElementNS(ns,'g'),walk:document.createElementNS(ns,'g'),lane:document.createElementNS(ns,'g'),mark:document.createElementNS(ns,'g'),ctrl:document.createElementNS(ns,'g')};
+    Object.values(groups).forEach(g=>objLayer.appendChild(g));
+    for(const o of roads){syncRoadBounds(o);const baseTransform=`translate(${o.x} ${o.y})`;for(const [name,g] of Object.entries(groups))g.removeAttribute('transform');const gg={};for(const k of Object.keys(groups)){gg[k]=document.createElementNS(ns,'g');gg[k].setAttribute('transform',baseTransform);groups[k].appendChild(gg[k])}for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);defs.filter(d=>d.item.type==='green').forEach(d=>drawBand21(gg.green,o,d));drawParking21(gg.parking,o,sideName);defs.filter(d=>d.item.type==='bike'||d.item.type==='walk').forEach(d=>drawBand21(gg.walk,o,d))}drawLane21(gg.lane,o);drawMarkings21(gg.mark,o);attachRoadInteraction21(gg.ctrl,o)}
+  }
+
+  // Road preview during creation, same visual hierarchy for the draft.
+  renderRoadDraw=function(){const layer=$('siteDrawLayer');if(!roadDraw||!roadDraw.points.length)return;const cfg=currentRoadConfig(),tmp={id:'draft-road',type:'ROAD_PATH',kind:'road',label:'ПРОЕЗД',x:0,y:0,roadPoints:deep(roadDraw.points),road:deep(cfg)};if(roadDraw.points.length>1){const passes=['green','parking','walk','lane','mark'];const gs={};passes.forEach(k=>{gs[k]=document.createElementNS(ns,'g');layer.appendChild(gs[k])});for(const sideName of ['left','right']){const defs=bandDefs21(tmp,sideName);defs.filter(d=>d.item.type==='green').forEach(d=>drawBand21(gs.green,tmp,d));drawParking21(gs.parking,tmp,sideName);defs.filter(d=>d.item.type==='bike'||d.item.type==='walk').forEach(d=>drawBand21(gs.walk,tmp,d))}drawLane21(gs.lane,tmp);drawMarkings21(gs.mark,tmp)}roadDraw.points.forEach((p,i)=>{const c=document.createElementNS(ns,'circle');c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r',i===roadDraw.points.length-1?4.4:3.5);c.setAttribute('class','roadGhostNode');layer.appendChild(c)})};
+
+  // ---- 3D geometry / outline helpers ----
+  function addEdgeCylinders21(mesh,geo,color=0x383d3f,scale=1){
+    if(!renderPrefs21.outline)return;const edges=new THREE.EdgesGeometry(geo),pos=edges.attributes.position,rad=(.018+.028*renderPrefs21.outlineThickness)*scale,mat=new THREE.MeshBasicMaterial({color});const up=new THREE.Vector3(0,1,0);
+    for(let i=0;i<pos.count;i+=2){const a=new THREE.Vector3(pos.getX(i),pos.getY(i),pos.getZ(i)),b=new THREE.Vector3(pos.getX(i+1),pos.getY(i+1),pos.getZ(i+1)),dir=b.clone().sub(a),len=dir.length();if(len<1e-4)continue;const cyl=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,len,6),mat);cyl.position.copy(a.clone().add(b).multiplyScalar(.5));cyl.quaternion.setFromUnitVectors(up,dir.normalize());mesh.add(cyl)}
+  }
+  function addVolume21(t,o,base,height,color){
+    let geo,mesh;const mat=new THREE.MeshStandardMaterial({color:new THREE.Color(color),roughness:.8,metalness:0});
+    if(isPolygonEditable(o)){geo=poly3DGeometry(o.points,height);mesh=new THREE.Mesh(geo,mat);mesh.position.set(o.x,base,o.y)}else{geo=new THREE.BoxGeometry(Math.max(.5,o.w||1),height,Math.max(.5,o.h||1));mesh=new THREE.Mesh(geo,mat);mesh.position.set(o.x,base+height/2,o.y)}mesh.rotation.y=-(o.rot||0)*Math.PI/180;mesh.userData.objId=o.id;t.group.add(mesh);addEdgeCylinders21(mesh,geo,0x343a3d,1);return mesh;
+  }
+  function addPerimeterFloor21(t,o,y,scale=.72){
+    if(!renderPrefs21.outline)return;const pts=objectWorldPoints(o),rad=(.014+.022*renderPrefs21.outlineThickness)*scale,mat=new THREE.MeshBasicMaterial({color:0x554c43}),up=new THREE.Vector3(0,1,0);for(let i=0;i<pts.length;i++){const a=new THREE.Vector3(pts[i][0],y,pts[i][1]),b=new THREE.Vector3(pts[(i+1)%pts.length][0],y,pts[(i+1)%pts.length][1]),dir=b.clone().sub(a),len=dir.length();if(len<1e-4)continue;const c=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,len,6),mat);c.position.copy(a.clone().add(b).multiplyScalar(.5));c.quaternion.setFromUnitVectors(up,dir.normalize());c.userData.objId=o.id;t.group.add(c)}}
+  function addBuilding21(t,o,base,height,floorH){
+    const residential='#F1C98F',commercial='#D9909C',fh=Math.min(floorH,height);if(o.groundFloorUse==='commercial'){addVolume21(t,o,base,fh,commercial);if(height>fh+.01)addVolume21(t,o,base+fh,height-fh,residential)}else addVolume21(t,o,base,height,residential);for(let i=1;i<Math.max(1,Number(o.floors)||1);i++)addPerimeterFloor21(t,o,base+i*floorH,.72);
+  }
+  function rampBaseElevation21(o,floorH){let z=0;for(const b of state.objects.filter(x=>x.id!==o.id&&isVisible(x)&&(x.kind==='parking'||x.kind==='stylobat'))){if(!bboxOverlap2(o,b))continue;const top=objBaseElevation(b,floorH)+obj3DHeight(b,floorH);z=Math.max(z,top)}return z}
+  function addRamp3D21(t,o,base){syncRamp21(o);const L=o.rampLen,W=o.rampWidth,H=o.rampHeight,verts=new Float32Array([
+    -L/2,0,-W/2, -L/2,0,W/2, L/2,0,-W/2, L/2,0,W/2, L/2,H,-W/2, L/2,H,W/2
+  ]),idx=[0,2,3,0,3,1, 0,1,5,0,5,4, 2,4,5,2,5,3, 0,4,2, 1,3,5];const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();const mat=new THREE.MeshStandardMaterial({color:0xe0c495,roughness:.82,metalness:0,side:THREE.DoubleSide}),mesh=new THREE.Mesh(geo,mat);mesh.position.set(o.x,base,o.y);mesh.rotation.y=-(o.rot||0)*Math.PI/180;mesh.userData.objId=o.id;t.group.add(mesh);addEdgeCylinders21(mesh,geo,0x4a4540,.85)}
+  function addSeg3D21(t,a,b,width,color,y,h,objId){const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.02)return;const geo=new THREE.BoxGeometry(len,h,width),mat=new THREE.MeshStandardMaterial({color,roughness:.76,metalness:0}),m=new THREE.Mesh(geo,mat);m.position.set((a[0]+b[0])/2,y+h/2,(a[1]+b[1])/2);m.rotation.y=-Math.atan2(dy,dx);m.userData.objId=objId;t.group.add(m)}
+  function addRoundJoin3D21(t,p,width,color,y,h,objId,segments=16){const m=new THREE.Mesh(new THREE.CylinderGeometry(width/2,width/2,h,segments),new THREE.MeshStandardMaterial({color,roughness:.76,metalness:0}));m.position.set(p[0],y+h/2,p[1]);m.userData.objId=objId;t.group.add(m)}
+  function addPathStrip3D21(t,pts,width,color,y,h,objId){for(let i=1;i<pts.length;i++)addSeg3D21(t,pts[i-1],pts[i],width,color,y,h,objId);for(let i=1;i<pts.length-1;i++)addRoundJoin3D21(t,pts[i],width,color,y,h,objId,12)}
+  function addRoad3D21(t,o,base){
+    const cfg=o.road||roadConfigDefault(),laneW=Number(cfg.laneWidth)||6,R=Number(cfg.radius)||6,world=roadWorldPoints(o),center=roundedSample21(world,R,6);
+    // priority 3: green (lowest)
+    for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);for(const d of defs.filter(x=>x.item.type==='green')){const off=offsetPolyline21(center,d.sign*d.mid);addPathStrip3D21(t,off,d.item.w,0x9bcf7e,base+.015,.07,o.id)}}
+    // parking (clear 10 m at bends/intersections)
+    for(const sideName of ['left','right']){const sign=sideName==='left'?-1:1,defs=bandDefs21(o,sideName),park=defs.find(d=>d.item.type==='parking');if(!park)continue;for(let si=0;si<world.length-1;si++){const a=world[si],b=world[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.1)continue;const nx=-dy/len*sign,ny=dx/len*sign,key=park.item.key,centers=roadParkingCenters21(o,si,key),depth=key==='perp'?5.3:2.5,along=key==='perp'?2.5:6;for(const d of centers){const tt=d/len,cx=a[0]+dx*tt+nx*park.mid,cy=a[1]+dy*tt+ny*park.mid,geo=new THREE.BoxGeometry(along,.09,depth),mat=new THREE.MeshStandardMaterial({color:0xe9eef0,roughness:.8}),m=new THREE.Mesh(geo,mat);m.position.set(cx,base+.055,cy);m.rotation.y=-Math.atan2(dy,dx);m.userData.objId=o.id;t.group.add(m)}}}
+    // priority 2: bike + sidewalk
+    for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);for(const d of defs.filter(x=>x.item.type==='bike'||x.item.type==='walk')){const off=offsetPolyline21(center,d.sign*d.mid),col=d.item.type==='bike'?0x70d4ce:0xeadcc9;addPathStrip3D21(t,off,d.item.w,col,base+.035,d.item.type==='walk'?.12:.09,o.id)}}
+    // priority 1: roadway and rounded intersection areas on top
+    addPathStrip3D21(t,center,laneW,0x747d82,base+.065,.15,o.id);
+    for(const ip of roadIntersections(o)){const m=new THREE.Mesh(new THREE.CylinderGeometry(R+laneW/2,R+laneW/2,.15,32),new THREE.MeshStandardMaterial({color:0x747d82,roughness:.74}));m.position.set(ip[0],base+.14,ip[1]);m.userData.objId=o.id;t.group.add(m)}
+    // center line and zebra crossings
+    for(let i=1;i<center.length;i++)addSeg3D21(t,center[i-1],center[i],.14,0xffffff,base+.218,.018,o.id);
+    const locInts=roadIntersections(o);for(let si=0;si<world.length-1;si++){const a=world[si],b=world[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<5)continue;const ux=dx/len,uy=dy/len;for(const ip of locInts){const q=segProject21(ip,a,b);if(q.t<0||q.t>1||q.dist>.8)continue;const d=q.t*len+(q.t<.5?3.2:-3.2);for(let k=-2;k<=2;k++){const s=d+k*.7;if(s<1||s>len-1)continue;const cx=a[0]+ux*s,cy=a[1]+uy*s;addSeg3D21(t,[cx-ux*.17,cy-uy*.17],[cx+ux*.17,cy+uy*.17],laneW+.8,0xffffff,base+.221,.02,o.id)}}}
+  }
+
+  // ---- New renderer preset exactly matching agreed values ----
+  ensure3D=function(){
+    if(three3d){applyGfxFilter21(false);return three3d}
+    const container=$('view3d'),renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(window.devicePixelRatio||1);renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.78;container.innerHTML='';container.appendChild(renderer.domElement);const scene=new THREE.Scene();scene.background=new THREE.Color(0xe7eff1);const camera=new THREE.PerspectiveCamera(45,1,1,8000),group=new THREE.Group();scene.add(group);scene.add(new THREE.HemisphereLight(0xffffff,0x66757c,.55));scene.add(new THREE.AmbientLight(0xffffff,.18));const dir=new THREE.DirectionalLight(0xffffff,1.05);dir.position.set(300,600,200);scene.add(dir);let target={x:0,y:0,z:0},radius=400,theta=Math.PI/4,phi=Math.PI/3.2,dragging=false,moved=false,lastX=0,lastY=0,dragMode='orbit';const updateCamera=()=>{camera.position.set(target.x+radius*Math.sin(phi)*Math.sin(theta),target.y+radius*Math.cos(phi),target.z+radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(target.x,target.y,target.z)},raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();const pickAt=(x,y)=>{const r=container.getBoundingClientRect();ndc.x=((x-r.left)/r.width)*2-1;ndc.y=-((y-r.top)/r.height)*2+1;raycaster.setFromCamera(ndc,camera);const hits=raycaster.intersectObjects(group.children.filter(m=>m.userData&&m.userData.objId),true);if(hits.length){const hitId=hits[0].object.userData.objId;if(state.objects.some(o=>o.id===hitId)){state.selected=hitId;state.calloutId=hitId;state.calloutPos={x,y};state.calloutOffset=null;renderAll()}}};container.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==1)return;dragging=true;moved=false;lastX=e.clientX;lastY=e.clientY;dragMode=e.button===1?'pan':'orbit';e.preventDefault()});window.addEventListener('pointerup',e=>{if(dragging&&!moved&&dragMode==='orbit')pickAt(e.clientX,e.clientY);dragging=false});window.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;lastX=e.clientX;lastY=e.clientY;if(dragMode==='pan'){const sc=radius*.0018,right={x:Math.cos(theta),z:-Math.sin(theta)},fwd={x:Math.sin(theta),z:Math.cos(theta)};target.x+=(-dx*right.x+dy*fwd.x)*sc;target.z+=(-dx*right.z+dy*fwd.z)*sc}else{theta-=dx*.008;phi=Math.min(Math.PI/2-.02,Math.max(.15,phi-dy*.008))}updateCamera();render()});container.addEventListener('wheel',e=>{e.preventDefault();radius=Math.min(4000,Math.max(40,radius*(1+e.deltaY*.001)));updateCamera();render()},{passive:false});container.addEventListener('auxclick',e=>e.preventDefault());const resize=()=>{const w=container.clientWidth||1,h=container.clientHeight||1;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();applyGfxFilter21(false);render()},render=()=>renderer.render(scene,camera);window.addEventListener('resize',resize);three3d={renderer,scene,camera,group,resize,render,setTarget:(x,y,z,r)=>{target={x,y,z};radius=r;updateCamera()}};updateCamera();applyGfxFilter21(false);return three3d;
+  };
+  rebuild3D=function(){
+    if(typeof THREE==='undefined'){$('view3d').innerHTML='<div class="threeHint">3D-библиотека не загрузилась. 2D-режим продолжает работать.</div>';return}const t=ensure3D();if(window.disposeScene43)window.disposeScene43(t.group);else while(t.group.children.length)t.group.remove(t.group.children[0]);const floorH=Number($('floorHeight').value)||3,ext=sceneExtent(),ground=new THREE.Mesh(new THREE.PlaneGeometry(ext.w,ext.h),new THREE.MeshStandardMaterial({color:0xf3f3e9,roughness:.94,metalness:0,side:THREE.DoubleSide,transparent:true,opacity:.75}));ground.rotation.x=-Math.PI/2;ground.position.set(ext.cx,-.02,ext.cy);t.group.add(ground);const ordered=[...state.objects].sort((a,b)=>modelLayer(a)-modelLayer(b));for(const o of ordered){if(!isVisible(o))continue;if(o.type==='ROAD_PATH'){addRoad3D21(t,o,objBaseElevation(o,floorH));continue}if(o.type==='RAMP'){addRamp3D21(t,o,rampBaseElevation21(o,floorH));continue}ensurePolygon(o);const height=obj3DHeight(o,floorH),base=objBaseElevation(o,floorH),proto=LIB[o.type]||{fill:'#d8d8d8'};if(o.kind==='building'){addBuilding21(t,o,base,height,floorH);continue}addVolume21(t,o,base,height,o.fill||proto.fill||'#d8d8d8')}if(roadDraw&&roadDraw.points?.length>1)addRoad3D21(t,{id:'draft-road',type:'ROAD_PATH',kind:'road',x:0,y:0,roadPoints:deep(roadDraw.points),road:deep(currentRoadConfig())},0);if(state.showSun){const dateStr=$('sunDate').value||'2026-03-22',tm=$('sunTime').value||'12:00',hr=Number(tm.split(':')[0]),d=new Date(dateStr+'T00:00:00Z');d.setUTCHours(hr-7);for(const o of state.objects.filter(x=>x.kind==='building'&&isVisible(x))){const poly=shadowPolygon(o,d);if(poly?.length>=3)t.group.add(shadowMeshFor(poly))}}t.resize();applyGfxFilter21(false);
+  };
+
+  // Global 2D road passes guarantee priority at intersections across all separate road objects.
+  renderAll=function(){
+    calcSunScores();objLayer.innerHTML='';renderUnderlay();renderRuleLayers();const visible=[...state.objects].filter(isVisible).sort((a,b)=>modelLayer(a)-modelLayer(b));visible.filter(o=>o.type!=='ROAD_PATH'&&modelLayer(o)<=3).forEach(renderObj);renderRoadNetwork21(visible.filter(o=>o.type==='ROAD_PATH'));visible.filter(o=>o.type!=='ROAD_PATH'&&modelLayer(o)>3).forEach(renderObj);renderRoadProfile();updateSun(false);updateMetrics();renderInspector();renderScenarioList();updateMode();syncLayerButtons();syncModelLayerButtons();if(typeof rebuild3D==='function'&&$('view3d').style.display==='block')rebuild3D();renderBlockCallout();renderPinnedCallouts();renderSiteDraw();renderRoadDraw();renderRuler();renderDimensionChains();updateSiteBoundCompare();
+  };
+
+  const serialize21Prev=serialize;
+  serialize=function(){const d=serialize21Prev();if(d?.meta)d.meta.version='0.21';return d};
+})();
+
+initial();
+</script>
+
+<style>
+  .dashSummaryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .dashCard{border:1px solid var(--line);border-radius:10px;background:#f8fbfb;padding:10px 11px;display:grid;gap:2px}
+  .dashCard b{font-size:18px;line-height:1.05;color:#173342}
+  .dashCard span{font-size:10px;color:#617781;text-transform:uppercase;letter-spacing:.04em}
+  .dashCard small{font-size:10px;color:#7d8f97}
+  .dashCard.accent{background:#eef5f7}
+  .metricsGrid.compact .metric{min-height:86px}
+  .stagebar .btn.soft.pressed{background:#dceef1;border-color:#7bb5bc}
+</style>
+<script>
+(() => {
+const DEFAULT_SCENARIO_22 = {"meta": {"tool": "META_MASSING", "version": "0.21", "created": "2026-09-22T07:15:04.586Z"}, "settings": {"siteArea": 27885.66, "siteW": 800, "siteH": 573.544575, "densityTarget": 2.5, "platformShare": 80, "individualShare": 20, "product": "standard", "layers": {"parking": true, "land": true, "stage": true, "road": true, "stylobat": true, "limit": true, "firegap": true, "sangap": true, "underlay": true, "model1": true, "model2": true, "model3": true, "model4": true}}, "objects": [{"id": "o2", "type": "RAMP", "kind": "parking", "label": "РАМПА 2П", "x": 379, "y": 290, "w": 22, "h": 8, "rot": 0, "floors": 0, "levels": 1, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "rampMode": "two", "rampLen": 22, "rampWidth": 8, "rampHeight": 4, "rampSlope": 18, "points": [[-11, -4], [11, -4], [11, 4], [-11, 4]], "fill": "#e4d8c3", "stroke": "#8e7656"}, {"id": "o3", "type": "P_ST", "kind": "parking", "label": "P СТ", "x": 339, "y": 301, "w": 73.5, "h": 106.5, "rot": 0, "floors": 0, "levels": 2, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 28, "costMM": 800000, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "points": [[-36, -17], [36, -17], [37.5, 89], [-35, 89.5]]}, {"id": "o4", "type": "PLAY", "kind": "land", "label": "ДЕТСКАЯ", "x": 352, "y": 329, "w": 16, "h": 33, "rot": 0, "floors": 0, "levels": 0, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "points": [[-12.5, -9], [3, -9.5], [3.5, 23.5], [-11.5, 23]]}, {"id": "o6", "type": "BLOK", "kind": "building", "label": "БЛОК Г-тип, 3Л · 45 м² ср.кв.", "x": 303, "y": 286, "w": 47, "h": 30, "rot": 0, "floors": 26, "levels": 0, "saleFloor": 761.8, "grossFloor": 1062, "kep": 0.7173, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 6, "sanitaryPlayGap": 20, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "avgApt": 45, "comboKey": "T3L", "groundFloorUse": "commercial", "shape": "bend", "legWidth": 18, "leg1": 47, "leg2": 30, "points": [[0, 0], [47, 0], [47, 18], [18, 18], [18, 30], [0, 30]], "blockCalc": {"comboKey": "T3L", "avgApt": 45, "kep": 0.7173304491665606, "footprint": 1062, "saleFloor": 761.8049370148874, "nKv": 16.928998600330832, "nChel": 33.857997200661664}, "sunScore": 0.6, "sunClass": "sunGood"}, {"id": "o7", "type": "BLOK", "kind": "building", "label": "БЛОК Т-тип, 3Л · 40 м² ср.кв.", "x": 312, "y": 340, "w": 45, "h": 17, "rot": 269, "floors": 22, "levels": 0, "saleFloor": 540.11, "grossFloor": 765, "kep": 0.706, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 6, "sanitaryPlayGap": 20, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "avgApt": 40, "comboKey": "T3L", "groundFloorUse": "commercial", "shape": "straight", "blockCalc": {"comboKey": "T3L", "avgApt": 40, "kep": 0.7060221870047544, "footprint": 765, "saleFloor": 540.1069730586371, "nKv": 13.502674326465927, "nChel": 27.005348652931854}, "sunScore": 0.3, "sunClass": "sunBad"}, {"id": "o9", "type": "BLOK", "kind": "building", "label": "БЛОК Н-тип, 3Л · 40 м² ср.кв.", "x": 324, "y": 381, "w": 40, "h": 22, "rot": 360, "floors": 20, "levels": 0, "saleFloor": 621.42, "grossFloor": 880, "kep": 0.7062, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 6, "sanitaryPlayGap": 20, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "avgApt": 40, "comboKey": "H3L", "groundFloorUse": "residential", "shape": "straight", "blockCalc": {"comboKey": "H3L", "avgApt": 40, "kep": 0.7061616459668983, "footprint": 880, "saleFloor": 621.4222484508706, "nKv": 15.535556211271764, "nChel": 31.07111242254353}, "sunScore": 0.9, "sunClass": "sunGood"}, {"id": "o10", "type": "BLOK", "kind": "building", "label": "БЛОК Т-тип, 3Л · 40 м² ср.кв.", "x": 385, "y": 368, "w": 45, "h": 17, "rot": 269, "floors": 15, "levels": 0, "saleFloor": 540.11, "grossFloor": 765, "kep": 0.706, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 6, "sanitaryPlayGap": 20, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "avgApt": 40, "comboKey": "T3L", "groundFloorUse": "commercial", "shape": "straight", "blockCalc": {"comboKey": "T3L", "avgApt": 40, "kep": 0.7060221870047544, "footprint": 765, "saleFloor": 540.1069730586371, "nKv": 13.502674326465927, "nChel": 27.005348652931854}, "sunScore": 1, "sunClass": "sunGood"}, {"id": "o11", "type": "BLOK", "kind": "building", "label": "БЛОК Т-тип, 3Л · 40 м² ср.кв.", "x": 383, "y": 320, "w": 45, "h": 17, "rot": 269, "floors": 17, "levels": 0, "saleFloor": 540.11, "grossFloor": 765, "kep": 0.706, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 6, "sanitaryPlayGap": 20, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "avgApt": 40, "comboKey": "T3L", "groundFloorUse": "commercial", "shape": "straight", "blockCalc": {"comboKey": "T3L", "avgApt": 40, "kep": 0.7060221870047544, "footprint": 765, "saleFloor": 540.1069730586371, "nKv": 13.502674326465927, "nChel": 27.005348652931854}, "sunScore": 0.6, "sunClass": "sunGood"}, {"id": "o12", "type": "P_SURF", "kind": "parking", "label": "P ПЛОСК", "x": 438, "y": 298, "w": 120.5, "h": 33.5, "rot": 270, "floors": 0, "levels": 1, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 28, "costMM": 180000, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": true, "guest": true, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 20, "points": [[-107, -7], [12, -8.5], [13.5, 25], [-105, 24]]}, {"id": "o16", "type": "ROAD_PATH", "kind": "road", "label": "ПРОЕЗД", "x": 462, "y": 268, "w": 200.68003540039064, "h": 192.98362426757814, "rot": 0, "stage": 1, "status": "CONCEPT", "roadPoints": [[0, 0], [-173.88003540039062, 0.57958984375], [-173.01065063476562, 139.68362426757812], [-50, 137.5], [-52.5, -26.5]], "road": {"laneWidth": 6, "radius": 6, "left": {"enabled": true, "perp": false, "parallel": true, "green": true, "greenW": 5.6, "bike": false, "sidewalk": true, "sidewalkW": 2.5}, "right": {"enabled": true, "perp": true, "parallel": false, "green": true, "greenW": 1.6, "bike": true, "sidewalk": true, "sidewalkW": 1.8}}}, {"id": "o17", "type": "GREEN", "kind": "land", "label": "ОЗЕЛЕНЕНИЕ", "x": 445, "y": 369, "w": 12, "h": 41, "rot": 0, "floors": 0, "levels": 0, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "points": [[-27.5, -18.5], [-15.5, -19.5], [-16, 21.5], [-27.5, 21]]}, {"id": "o18", "type": "GREEN", "kind": "land", "label": "ОЗЕЛЕНЕНИЕ", "x": 445, "y": 299, "w": 12, "h": 41, "rot": 0, "floors": 0, "levels": 0, "saleFloor": 0, "grossFloor": 0, "kep": 0, "m2mm": 0, "costMM": 0, "stage": 1, "status": "CONCEPT", "moduleId": null, "fireGap": 0, "sanitaryPlayGap": 0, "surface": false, "guest": false, "placeW": 2.5, "placeH": 5.3, "aisle": 6, "plannedMM": 0, "points": [[-27.5, -19.5], [-15.5, -19.5], [-16, 21.5], [-27.5, 21]]}], "pinnedCallouts": [{"objId": "o7", "x": 201.73626713983163, "y": 270.751010304294}, {"objId": "o9", "x": 202.2604465593968, "y": 357.76167216133035}, {"objId": "o6", "x": 201.2121395576596, "y": 182.69206751418056}, {"objId": "o11", "x": 459.09909025125086, "y": 180.07124639787605}, {"objId": "o10", "x": 468.0098567528377, "y": 447.393124017239}, {"objId": "o3", "x": 329.631454630234, "y": 457.352180649666}], "dimensionChains": [], "metrics": {"sale": 59019.01, "gross": 86522, "foot": 4237, "density": 2.1164645197567498, "apts": 1553, "avg": 38, "pTH": 0, "ind": 0, "share": 0, "needMM": 879, "haveMM": 1047, "roadMM": 302, "needLand": 8262.6614, "haveLand": 1447.375, "targetSale": 69714.15, "targetMM": 1038, "targetLand": 9759.981, "stages": 1, "sun": {"pass": 4, "risk": 0, "fail": 1}}};
+const rightSecs = [...document.querySelectorAll('.panel.right .sec')];
+const tepSec = rightSecs.find(s => /ТЭП площадки/.test((s.querySelector('h3')?.textContent)||''));
+if(tepSec && !document.getElementById('tepSummarySec')){
+  const sec=document.createElement('section');
+  sec.className='sec'; sec.id='tepSummarySec';
+  sec.innerHTML=`<h3>Суммарные ТЭП</h3><div class="dashSummaryGrid" id="dashSummaryGrid">
+    <div class="dashCard accent"><span>Жилые корпуса</span><b id="sBuildCount">0</b><small id="sFloorRange">—</small></div>
+    <div class="dashCard accent"><span>S жилья</span><b id="sResSale">0 м²</b><small id="sComSale">Коммерция 0 м²</small></div>
+    <div class="dashCard"><span>Паркинг закрытый</span><b id="sClosedMM">0 ММ</b><small id="sOpenMM">Открытый 0 ММ</small></div>
+    <div class="dashCard"><span>Проезды</span><b id="sRoadLen">0 м</b><small id="sRoadMM2">Вдоль проездов 0 ММ</small></div>
+    <div class="dashCard"><span>Благоустройство</span><b id="sLandAll">0 м²</b><small id="sGreenOnly">Озеленение 0 м²</small></div>
+    <div class="dashCard"><span>Стилобат / рампы</span><b id="sStylo">0 м²</b><small id="sRamps">Рамп 0</small></div>
+  </div>`;
+  tepSec.insertAdjacentElement('afterend', sec);
+}
+
+function summaryMetrics22(){
+  const b=state.objects.filter(o=>o.kind==='building');
+  const park=state.objects.filter(o=>o.kind==='parking');
+  const roads=state.objects.filter(o=>o.type==='ROAD_PATH');
+  const lands=state.objects.filter(o=>o.kind==='land');
+  const resSale=b.reduce((s,o)=>s+Math.max(0,buildingSale(o)-buildingCommercial(o)),0);
+  const comSale=b.reduce((s,o)=>s+buildingCommercial(o),0);
+  const buildCount=b.length;
+  const floors=b.map(o=>Number(o.floors)||0).filter(Boolean);
+  const closedMM=park.filter(o=>['P_UG','P_AG','P_ST','P_FREE'].includes(o.type)).reduce((s,o)=>s+parkingMM(o),0);
+  const openMM=park.filter(o=>o.type==='P_SURF').reduce((s,o)=>s+parkingMM(o),0);
+  const roadLen=roads.reduce((s,o)=>s+polylineLength(roadWorldPoints(o)),0);
+  const roadMM=roads.reduce((s,o)=>s+roadParkingStats(o).total,0);
+  const allLand=lands.reduce((s,o)=>s+landArea(o),0);
+  const greenOnly=lands.filter(o=>o.type==='GREEN').reduce((s,o)=>s+landArea(o),0);
+  const stylo=state.objects.filter(o=>o.type==='STYLO'||o.type==='P_ST').reduce((s,o)=>s+objArea(o),0);
+  const ramps=state.objects.filter(o=>o.type==='RAMP').length;
+  return {buildCount,resSale,comSale,closedMM,openMM,roadLen,roadMM,allLand,greenOnly,stylo,ramps,floorMin:floors.length?Math.min(...floors):0,floorMax:floors.length?Math.max(...floors):0};
+}
+const _updateMetrics22 = updateMetrics;
+updateMetrics = function(){
+  _updateMetrics22();
+  const s=summaryMetrics22();
+  if($('sBuildCount')) $('sBuildCount').textContent=fmt(s.buildCount);
+  if($('sFloorRange')) $('sFloorRange').textContent=s.buildCount?`этажность ${fmt(s.floorMin)}–${fmt(s.floorMax)}`:'—';
+  if($('sResSale')) $('sResSale').textContent=`${fmt(s.resSale)} м²`;
+  if($('sComSale')) $('sComSale').textContent=`Коммерция ${fmt(s.comSale)} м²`;
+  if($('sClosedMM')) $('sClosedMM').textContent=`${fmt(s.closedMM)} ММ`;
+  if($('sOpenMM')) $('sOpenMM').textContent=`Открытый ${fmt(s.openMM)} ММ`;
   if($('sRoadLen')) $('sRoadLen').textContent=`${fmt(s.roadLen,1)} м`;
   if($('sRoadMM2')) $('sRoadMM2').textContent=`Вдоль проездов ${fmt(s.roadMM)} ММ`;
   if($('sLandAll')) $('sLandAll').textContent=`${fmt(s.allLand)} м²`;
@@ -1801,7 +2008,406 @@ if(graphicBtn) graphicBtn.classList.add('pressed');
       svg+=`<line x1="${pad}" y1="${gy}" x2="${w-pad}" y2="${gy}" stroke="#dfe7eb" stroke-width="1"/>`;
     }
     svg+=`<line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#566d76" stroke-width="2"/>`;
-    svg+=`<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#566d76" s; document.getElementById('insolFront2D26')?.remove(); const o=selectedB26(); if(!o)return; const g=document.createElementNS(ns,'g');g.id='insolFront2D26';
+    svg+=`<line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#566d76" stroke-width="2"/>`;
+    for(let i=0;i<=8;i++){
+      const val=(i*0.5).toFixed(1).replace('.0','');
+      const x=pad+i*(w-2*pad)/8, y=h-pad-i*(h-2*pad)/8;
+      svg+=`<text x="${x}" y="${h-pad+18}" text-anchor="middle" font-size="10" fill="#5f757d">${val}</text>`;
+      svg+=`<text x="${pad-12}" y="${y+4}" text-anchor="end" font-size="10" fill="#5f757d">${val}</text>`;
+    }
+    svg+=`<text x="${w/2}" y="${h-10}" text-anchor="middle" class="insolAxisTitle" fill="#5b7179">Суммарная прерывистая продолжительность инсоляции, часы</text>`;
+    svg+=`<text x="18" y="${h/2}" transform="rotate(-90 18 ${h/2})" text-anchor="middle" class="insolAxisTitle" fill="#5b7179">Максимальный непрерывный период, часы</text>`;
+    data.forEach((d,idx)=>{
+      const cx=sx(Math.min(maxX,d.total)), cy=sy(Math.min(maxY,d.maxCont));
+      svg+=`<circle cx="${cx}" cy="${cy}" r="6" fill="#173342" stroke="#ffffff" stroke-width="2"/><text x="${cx+9}" y="${cy-8}" font-size="10" font-weight="700" fill="#173342">${idx+1}</text>`;
+      if(tb){ tb.insertAdjacentHTML('beforeend', `<tr><td><b>${idx+1}.</b> ${d.label}</td><td>${insolCatLabel(d.inferred)}</td><td>${fmt(d.maxCont,1)} ч</td><td>${fmt(d.total,1)} ч</td><td><span class="insolBadge ${d.cls.badge}">${d.cls.title}</span></td></tr>`); }
+    });
+    svg+='</svg>';
+    wrap.innerHTML=svg;
+    data.forEach(d=>{
+      const o=state.objects.find(x=>x.id===d.id); if(!o) return;
+      o.insolTotal=d.total; o.insolMaxCont=d.maxCont; o.insolClass=d.cls.key; o.insolClassTitle=d.cls.title;
+      o.sunClass = d.cls.key==='fail' ? 'sunBad' : (d.cls.key==='twoRoom_tol' || d.cls.key==='twoRoom' ? 'sunRisk' : 'sunGood');
+      o.sunScore = Math.min(1, Math.max(d.maxCont/2.0, d.total/2.5));
+    });
+    const good=data.filter(d=>!['fail','twoRoom_tol'].includes(d.cls.key)).length, risk=data.filter(d=>['twoRoom','twoRoom_tol'].includes(d.cls.key)).length, fail=data.filter(d=>d.cls.key==='fail').length;
+    const mSun=document.getElementById('mSun'); if(mSun) mSun.textContent=`${good}/${risk}/${fail}`;
+  }
+  function openInsol(){ document.getElementById('insolModal')?.classList.add('open'); renderInsolChart(); }
+  document.querySelectorAll('[data-close="insolModal"]').forEach(b=>b.addEventListener('click',()=>document.getElementById('insolModal')?.classList.remove('open')));
+  document.getElementById('insolRecalcBtn')?.addEventListener('click',()=>{renderInsolChart(); renderAll();});
+  sunBtn?.addEventListener('click', (e)=>{ e.preventDefault(); openInsol(); });
+  const secHeads=[...document.querySelectorAll('.panel.right .sec h3')];
+  const proxyHead=secHeads.find(h=>/Инсоляционный proxy/i.test(h.textContent||''));
+  if(proxyHead){
+    const sec=proxyHead.parentElement;
+    sec.querySelector('h3').textContent='Инсоляция · инструмент';
+    sec.insertAdjacentHTML('beforeend', `<div class="insolMini" style="margin-top:10px"><span class="chip">Диаграмма по СанПиН</span><button class="btn" id="openInsolFromPanel">Открыть диаграмму</button></div>`);
+    document.getElementById('openInsolFromPanel')?.addEventListener('click',openInsol);
+  }
+  const _renderAllInsol = renderAll;
+  renderAll = function(){ _renderAllInsol(); try{ renderInsolChart(); }catch(e){} };
+  try{ renderInsolChart(); }catch(e){}
+})();
+</script>
+
+
+<style>
+  .insolFrontCard{margin-top:10px;padding:10px;border:1px solid #d7e4e7;border-radius:10px;background:#f7fbfc}
+  .insolFrontCard h4{margin:0 0 8px;font-size:12px;color:#25424c}
+  .insolFrontRow{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:6px 0;font-size:11px}
+  .insolFrontRow input{width:92px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:11px}
+  .insolFrontLegend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .insolFrontLegend span{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#52666d}
+  .insolFrontLegend i{width:12px;height:8px;border-radius:2px;display:inline-block}
+  .insolFrontStats{font-size:10px;color:#5b7179;line-height:1.45;margin-top:8px}
+</style>
+<script>
+(() => {
+  const FLOOR_STEP_INSOL = 3;
+  const INSOL_COLORS = {
+    dou:'#25a598',
+    studio1:'#0b7f24',
+    studio1_tol:'#8e9b37',
+    twoRoom:'#efe64b',
+    twoRoom_tol:'#f0a8b9',
+    fail:'#e52020'
+  };
+  function buildingContourLocalH24(o){
+    const fh=Number(document.getElementById('floorHeight')?.value)||3;
+    const auto=(o.groundFloorUse==='commercial'? fh+fh/2 : fh/2);
+    const val=Number(o.insolLineH);
+    return val>0 ? val : auto;
+  }
+  function buildingContourAbsH24(o){ return objBaseElevation(o, Number(document.getElementById('floorHeight')?.value)||3) + buildingContourLocalH24(o); }
+  function shadowPolygonAtHeight24(caster,date,targetY){
+    if(caster.kind!=='building') return null;
+    const sp=solarPosition(date); if(sp.alt<=.03) return null;
+    const floorH=Number(document.getElementById('floorHeight')?.value)||3;
+    const casterTop=objBaseElevation(caster,floorH)+obj3DHeight(caster,floorH);
+    const eff=Math.max(0,casterTop-targetY);
+    if(eff<=.05) return null;
+    const len=Math.min(500,eff/Math.tan(sp.alt));
+    const dx=-Math.sin(sp.az)*len, dy=Math.cos(sp.az)*len;
+    const c=corners(caster), pts=[...c,...c.map(([x,y])=>[x+dx,y+dy])];
+    return convexHull(pts);
+  }
+  function inferCategory24(o){
+    if(o.insolCategory) return o.insolCategory;
+    const avg=Number(o.avgApt)||0;
+    if(avg && avg<=42) return 'studio1';
+    return 'twoRoom';
+  }
+  function classifyInsol24(data){
+    const tests=[
+      {key:'dou',cont:2.5,sum:3.0,minSeg:1.0,title:'Бирюзовый'},
+      {key:'studio1',cont:2.0,sum:2.5,minSeg:1.0,title:'Зеленый'},
+      {key:'studio1_tol',cont:2.0-10/60,sum:2.5-10/60,minSeg:1.0,title:'Оливковый'},
+      {key:'twoRoom',cont:1.5,sum:2.0,minSeg:1.0,title:'Желтый'},
+      {key:'twoRoom_tol',cont:1.5-10/60,sum:2.0-10/60,minSeg:1.0,title:'Розовый'}
+    ];
+    for(const th of tests){
+      if(data.maxCont>=th.cont-1e-6 || (data.total>=th.sum-1e-6 && data.longestSeg>=th.minSeg-1e-6)) return th;
+    }
+    return {key:'fail',title:'Красный'};
+  }
+  function pointInsolData24(point,targetY,o){
+    const dateStr=(document.getElementById('sunDate')?.value)||'2026-03-22';
+    const lit=[];
+    for(let hr=8; hr<=17; hr+=0.5){
+      const hh=Math.floor(hr), mm=(hr%1)?30:0;
+      const d=new Date(dateStr+'T00:00:00Z');
+      d.setUTCHours(hh-7,mm,0,0);
+      const sp=solarPosition(d); if(sp.alt<=.03) continue;
+      let blocked=false;
+      for(const other of state.objects.filter(x=>x.kind==='building'&&x.id!==o.id&&isVisible(x))){
+        const poly=shadowPolygonAtHeight24(other,d,targetY);
+        if(poly && pointInPoly(point,poly)){ blocked=true; break; }
+      }
+      lit.push(!blocked);
+    }
+    const step=.5; let total=0, cur=0, maxCont=0;
+    for(const ok of lit){ if(ok){ total+=step; cur+=step; if(cur>maxCont) maxCont=cur; } else cur=0; }
+    const longestSeg=maxCont;
+    const data={maxCont,total,longestSeg};
+    const cls = classifyInsol24(data);
+    return {...data, cls};
+  }
+  function signedArea24(pts){ let s=0; for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length]; s += a[0]*b[1]-b[0]*a[1]; } return s/2; }
+  function facadeSegments24(o,step=FLOOR_STEP_INSOL){
+    const pts=objectWorldPoints(o); if(!pts||pts.length<2) return [];
+    const cat=inferCategory24(o); const targetY=buildingContourAbsH24(o); const area=signedArea24(pts); const ccw=area>0; const out=[];
+    for(let i=0;i<pts.length;i++){
+      const a=pts[i], b=pts[(i+1)%pts.length]; const dx=b[0]-a[0], dy=b[1]-a[1], len=Math.hypot(dx,dy); if(len<.3) continue;
+      const n=Math.max(1,Math.ceil(len/step));
+      const seglen=len/n; const ux=dx/len, uy=dy/len; const nx=ccw? uy : -uy, ny=ccw? -ux : ux;
+      for(let k=0;k<n;k++){
+        const d1=k*seglen, d2=(k+1)*seglen; const p1=[a[0]+ux*d1, a[1]+uy*d1], p2=[a[0]+ux*d2, a[1]+uy*d2];
+        const mid=[(p1[0]+p2[0])/2 + nx*0.05, (p1[1]+p2[1])/2 + ny*0.05];
+        const r=pointInsolData24(mid,targetY,o); let key=r.cls?.key||'fail';
+        if(cat==='studio1' || cat==='studio1_tol'){
+          if(key==='twoRoom' || key==='twoRoom_tol') key='fail';
+        }
+        if(cat==='twoRoom'){
+          if(key==='dou' || key==='studio1' || key==='studio1_tol') key='twoRoom';
+        }
+        out.push({a:[p1[0]+nx*0.12,p1[1]+ny*0.12],b:[p2[0]+nx*0.12,p2[1]+ny*0.12],mid,total:r.total,maxCont:r.maxCont,key,color:INSOL_COLORS[key]||INSOL_COLORS.fail,targetY});
+      }
+    }
+    return out;
+  }
+  function addFacadeFront3D24(t,o){ return; /* superseded by v0.33 */ 
+    const segs=facadeSegments24(o,FLOOR_STEP_INSOL); if(!segs.length) return;
+    const y=buildingContourAbsH24(o); const colorCount={};
+    segs.forEach(s=>{ colorCount[s.key]=(colorCount[s.key]||0)+1; addSeg3D21(t,s.a,s.b,0.28,parseInt((s.color||'#ff0000').replace('#','0x')),y,0.16,o.id); });
+    o.insolFrontSummary=colorCount; o.insolFrontSegments=segs.length;
+  }
+  const _rebuild3D24 = rebuild3D;
+  rebuild3D = function(){ _rebuild3D24(); try{ const t=ensure3D(); state.objects.filter(o=>o.kind==='building'&&isVisible(o)).forEach(o=>addFacadeFront3D24(t,o)); }catch(e){ console.warn('insol-front',e); } };
+
+  function appendInspectorFront24(){ return; /* superseded by v0.33 */ 
+    const root=document.getElementById('inspector'); const o=selected(); if(!root||!o||o.kind!=='building') return;
+    if(root.querySelector('.insolFrontCard')) return;
+    const segs=facadeSegments24(o,FLOOR_STEP_INSOL); const sum={}; segs.forEach(s=>sum[s.key]=(sum[s.key]||0)+1);
+    const card=document.createElement('div'); card.className='insolFrontCard';
+    const localH=buildingContourLocalH24(o), absH=buildingContourAbsH24(o);
+    card.innerHTML=`<h4>Инсоляционный фронт</h4>
+      <div class="insolFrontRow"><label>Высота абриса, м<br><small>от базы здания</small></label><input id="insolLineHInput24" type="number" min="0.5" step="0.1" value="${localH.toFixed(1)}"></div>
+      <div class="insolFrontStats"><b>Шаг сегментов:</b> ${FLOOR_STEP_INSOL} м · <b>Абсолютная отметка:</b> ${absH.toFixed(2)} м<br><b>Линия проходит</b> по центру высоты нижнего жилого этажа; для зданий с коммерцией на 1-м этаже автоматически смещена на 2-й этаж.<br><b>Количество сегментов:</b> ${segs.length}</div>
+      <div class="insolFrontLegend">
+        <span><i style="background:${INSOL_COLORS.dou}"></i> ДОУ / строгая</span>
+        <span><i style="background:${INSOL_COLORS.studio1}"></i> 1-комн.</span>
+        <span><i style="background:${INSOL_COLORS.studio1_tol}"></i> 1-комн. +10 мин</span>
+        <span><i style="background:${INSOL_COLORS.twoRoom}"></i> 2-комн.</span>
+        <span><i style="background:${INSOL_COLORS.twoRoom_tol}"></i> 2-комн. +10 мин</span>
+        <span><i style="background:${INSOL_COLORS.fail}"></i> не соответствует</span>
+      </div>
+      <div class="insolFrontStats">Бирюзовых: ${sum.dou||0} · Зеленых: ${sum.studio1||0} · Оливковых: ${sum.studio1_tol||0} · Желтых: ${sum.twoRoom||0} · Розовых: ${sum.twoRoom_tol||0} · Красных: ${sum.fail||0}</div>`;
+    root.appendChild(card);
+    const inp=card.querySelector('#insolLineHInput24');
+    inp?.addEventListener('change',()=>{ checkpoint(); o.insolLineH=Math.max(.5, Number(inp.value)||buildingContourLocalH24(o)); renderAll(); });
+  }
+  const _renderAll24 = renderAll;
+  renderAll = function(){ _renderAll24(); try{ appendInspectorFront24(); }catch(e){ console.warn('insol-front-ui',e); } };
+  const sunBtn=document.getElementById('sunBtn');
+  if(sunBtn){ sunBtn.onclick=(e)=>{ if(e)e.preventDefault(); state.showSun=true; if(typeof openInsol==='function') openInsol(); else { const m=document.getElementById('insolModal'); if(m) m.classList.add('open'); } renderAll(); }; }
+})();
+</script>
+
+
+<style>
+  .insolFrontTool{border:1px solid #b9d7d4;background:linear-gradient(135deg,#f3fbfa,#f7fbfd);border-radius:10px;padding:10px;margin-top:8px}
+  .insolFrontTool .title{font-size:12px;font-weight:900;color:#24434d;margin-bottom:7px}
+  .insolFrontTool .hint{font-size:10px;color:#687c84;line-height:1.45;margin-top:6px}
+  .insolFrontTool .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;font-size:10px}
+  .insolFrontTool select,.insolFrontTool input{width:132px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:10px;background:#fff}
+  .insolFrontTool .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  #insolFrontBtn.active{background:#dff4ef;border-color:#87cfc1;color:#0c6f67}
+  .insol2dSeg{stroke-linecap:round;stroke-width:4;vector-effect:non-scaling-stroke;pointer-events:none}
+  .insol2dPoint{stroke:#fff;stroke-width:1;vector-effect:non-scaling-stroke;pointer-events:none}
+</style>
+<script>
+(() => {
+  // Explicit, always-visible entry point for the insolation-front tool.
+  if(!document.getElementById('insolFrontBtn')){
+    const sunBtn=document.getElementById('sunBtn');
+    const b=document.createElement('button');
+    b.className='btn soft'; b.id='insolFrontBtn'; b.textContent='🌈 Инсоляционный фронт';
+    sunBtn?.insertAdjacentElement('afterend',b);
+  }
+  const panelSecs=[...document.querySelectorAll('.panel.right .sec')];
+  const sunSec=panelSecs.find(s=>/Инсоляц/i.test(s.querySelector('h3')?.textContent||''));
+  if(sunSec && !document.getElementById('insolFrontTool25')){
+    const sec=document.createElement('section'); sec.className='sec'; sec.id='insolFrontTool25';
+    sec.innerHTML=`<h3>Инсоляционный фронт фасада</h3>
+      <div class="insolFrontTool">
+        <div class="title">Расчет по линии нижнего жилого этажа</div>
+        <div class="row"><label>Корпус</label><select id="insolFrontBuilding25"></select></div>
+        <div class="row"><label>Высота абриса, м</label><input id="insolFrontHeight25" type="number" min="0.5" step="0.1" value="1.5"></div>
+        <div class="row"><label>Шаг точек</label><input value="3,0 м" disabled></div>
+        <div class="row"><label>Показывать фронт</label><input id="insolFrontVisible25" type="checkbox" checked style="width:auto"></div>
+        <div class="actions"><button class="btn" id="insolFrontCalc25">Пересчитать</button><button class="btn" id="insolFront3D25">Показать в 3D</button></div>
+        <div class="hint">Для жилого первого этажа высота по умолчанию = середина 1-го этажа. Если 1-й этаж коммерческий — середина первого жилого этажа над коммерцией. Высоту можно задать вручную; при изменении выполняется пересчет.</div>
+        <div id="insolFrontSummary25" class="statusline" style="margin-top:8px">Выберите корпус.</div>
+      </div>`;
+    sunSec.insertAdjacentElement('afterend',sec);
+  }
+
+  state.insolFrontVisible = state.insolFrontVisible ?? true;
+  state.insolFrontSelected = state.insolFrontSelected || null;
+
+  const C25={dou:'#25a598',studio1:'#0b7f24',studio1_tol:'#8e9b37',twoRoom:'#efe64b',twoRoom_tol:'#f0a8b9',fail:'#e52020'};
+  function lineLocalH25(o){ const fh=Number($('floorHeight')?.value)||3; const auto=(o.groundFloorUse==='commercial'?fh+fh/2:fh/2); return Number(o.insolLineH)>0?Number(o.insolLineH):auto; }
+  function targetAbsH25(o){ const fh=Number($('floorHeight')?.value)||3; return objBaseElevation(o,fh)+lineLocalH25(o); }
+  function shadowAt25(caster,date,targetY){
+    const sp=solarPosition(date); if(sp.alt<=.03)return null; const fh=Number($('floorHeight')?.value)||3; const top=objBaseElevation(caster,fh)+obj3DHeight(caster,fh); const dh=Math.max(0,top-targetY); if(dh<=.05)return null; const len=Math.min(500,dh/Math.tan(sp.alt)),dx=-Math.sin(sp.az)*len,dy=Math.cos(sp.az)*len,c=corners(caster),pts=[...c,...c.map(([x,y])=>[x+dx,y+dy])]; return convexHull(pts);
+  }
+  function cls25(d){
+    const tests=[['dou',2.5,3.0],['studio1',2.0,2.5],['studio1_tol',2-10/60,2.5-10/60],['twoRoom',1.5,2.0],['twoRoom_tol',1.5-10/60,2.0-10/60]];
+    for(const [key,c,s] of tests) if(d.maxCont>=c-1e-6 || (d.total>=s-1e-6 && d.maxCont>=1-1e-6)) return key; return 'fail';
+  }
+  function pointData25(pt,h,o){ const dateStr=$('sunDate')?.value||'2026-03-22'; let total=0,cur=0,maxCont=0; for(let hr=8;hr<=17;hr+=.5){ const hh=Math.floor(hr),mm=(hr%1)?30:0,d=new Date(dateStr+'T00:00:00Z'); d.setUTCHours(hh-7,mm,0,0); if(solarPosition(d).alt<=.03)continue; let block=false; for(const other of state.objects.filter(x=>x.kind==='building'&&x.id!==o.id&&isVisible(x))){const poly=shadowAt25(other,d,h);if(poly&&pointInPoly(pt,poly)){block=true;break}} if(!block){total+=.5;cur+=.5;maxCont=Math.max(maxCont,cur)}else cur=0; } const key=cls25({total,maxCont}); return {total,maxCont,key,color:C25[key]}; }
+  function signedArea25(pts){let s=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];s+=a[0]*b[1]-b[0]*a[1]}return s/2}
+  function segs25(o){ const pts=objectWorldPoints(o),h=targetAbsH25(o),ccw=signedArea25(pts)>0,out=[]; for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy); if(len<.2)continue; const n=Math.max(1,Math.ceil(len/3)),L=len/n,ux=dx/len,uy=dy/len,nx=ccw?uy:-uy,ny=ccw?-ux:ux; for(let k=0;k<n;k++){ const p1=[a[0]+ux*k*L+nx*.15,a[1]+uy*k*L+ny*.15],p2=[a[0]+ux*(k+1)*L+nx*.15,a[1]+uy*(k+1)*L+ny*.15],mid=[(p1[0]+p2[0])/2,(p1[1]+p2[1])/2],d=pointData25(mid,h,o); out.push({...d,a:p1,b:p2,mid,h}); }} return out; }
+
+  function selectedFrontBuilding25(){ const id=$('insolFrontBuilding25')?.value || state.insolFrontSelected; return state.objects.find(o=>o.id===id&&o.kind==='building') || state.objects.find(o=>o.kind==='building'); }
+  function refreshFrontSelect25(){ const sel=$('insolFrontBuilding25'); if(!sel)return; const buildings=state.objects.filter(o=>o.kind==='building'); const keep=state.insolFrontSelected||selected()?.id||buildings[0]?.id||''; sel.innerHTML=buildings.map(o=>`<option value="${o.id}">${o.label}</option>`).join(''); if(buildings.some(o=>o.id===keep))sel.value=keep; state.insolFrontSelected=sel.value||null; const o=selectedFrontBuilding25(); if(o&&$('insolFrontHeight25')) $('insolFrontHeight25').value=lineLocalH25(o).toFixed(1); }
+  function summary25(o,segs){ const cnt={};segs.forEach(s=>cnt[s.key]=(cnt[s.key]||0)+1); const bad=cnt.fail||0,total=segs.length; return `<b>${o.label}</b><br>Высота абриса: <b>${lineLocalH25(o).toFixed(1)} м</b> · сегментов: <b>${total}</b><br><span style="color:${C25.dou}">■</span> ${cnt.dou||0} &nbsp;<span style="color:${C25.studio1}">■</span> ${cnt.studio1||0} &nbsp;<span style="color:${C25.studio1_tol}">■</span> ${cnt.studio1_tol||0} &nbsp;<span style="color:${C25.twoRoom}">■</span> ${cnt.twoRoom||0} &nbsp;<span style="color:${C25.twoRoom_tol}">■</span> ${cnt.twoRoom_tol||0} &nbsp;<span style="color:${C25.fail}">■</span> ${bad}`; }
+  function updateFrontUI25(){ return; /* superseded by v0.33 */  refreshFrontSelect25(); const o=selectedFrontBuilding25(); if(!o)return; const segs=segs25(o); if($('insolFrontSummary25'))$('insolFrontSummary25').innerHTML=summary25(o,segs); }
+  function drawFront2D25(){ return; /* superseded by v0.33 */  if(!state.insolFrontVisible)return; const o=selectedFrontBuilding25(); if(!o)return; const g=document.createElementNS(ns,'g');g.id='insolFront2D25'; const ss=segs25(o); for(const s of ss){const l=document.createElementNS(ns,'line');l.setAttribute('x1',s.a[0]);l.setAttribute('y1',s.a[1]);l.setAttribute('x2',s.b[0]);l.setAttribute('y2',s.b[1]);l.setAttribute('stroke',s.color);l.setAttribute('class','insol2dSeg');g.appendChild(l);const c=document.createElementNS(ns,'circle');c.setAttribute('cx',s.mid[0]);c.setAttribute('cy',s.mid[1]);c.setAttribute('r','1.3');c.setAttribute('fill',s.color);c.setAttribute('class','insol2dPoint');g.appendChild(c);} objLayer.appendChild(g); }
+
+  const _renderAll25=renderAll;
+  renderAll=function(){ _renderAll25(); try{ refreshFrontSelect25(); drawFront2D25(); updateFrontUI25(); }catch(e){console.warn('front25',e)} };
+  $('insolFrontBuilding25')?.addEventListener('change',()=>{state.insolFrontSelected=$('insolFrontBuilding25').value;const o=selectedFrontBuilding25();if(o){state.selected=o.id;$('insolFrontHeight25').value=lineLocalH25(o).toFixed(1)}renderAll()});
+  $('insolFrontHeight25')?.addEventListener('change',()=>{const o=selectedFrontBuilding25();if(!o)return;checkpoint();o.insolLineH=Math.max(.5,Number($('insolFrontHeight25').value)||lineLocalH25(o));renderAll()});
+  $('insolFrontVisible25')?.addEventListener('change',()=>{state.insolFrontVisible=$('insolFrontVisible25').checked;renderAll()});
+  $('insolFrontCalc25')?.addEventListener('click',()=>renderAll());
+  $('insolFront3D25')?.addEventListener('click',()=>{state.insolFrontVisible=true;if($('insolFrontVisible25'))$('insolFrontVisible25').checked=true;setViewMode('3d');renderAll()});
+  $('insolFrontBtn')?.addEventListener('click',()=>{state.insolFrontVisible=!state.insolFrontVisible;$('insolFrontBtn').classList.toggle('active',state.insolFrontVisible);if($('insolFrontVisible25'))$('insolFrontVisible25').checked=state.insolFrontVisible;document.getElementById('insolFrontTool25')?.scrollIntoView({behavior:'smooth',block:'start'});renderAll()});
+  $('insolFrontBtn')?.classList.toggle('active',state.insolFrontVisible);
+  refreshFrontSelect25(); updateFrontUI25(); renderAll();
+})();
+</script>
+
+
+<style>
+  .insolNormBox{margin-top:8px;padding:9px 10px;border:1px solid #cfe0e4;border-radius:9px;background:#fbfdfd;font-size:10px;line-height:1.45;color:#587078}
+  .insolNormBox b{color:#24434d}
+  .insolFrontTool .row.threeCols{display:grid;grid-template-columns:1fr 92px 72px;gap:6px;align-items:center}
+  .insolFrontTool .row.threeCols input{width:92px}
+  .insolFrontTool .miniBtn{padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:9px;font-weight:800;color:#365761;cursor:pointer}
+  .insolFrontTool .miniBtn:hover{background:#eef7f7}
+  #insolRuler26{margin-top:8px;border:1px solid #dbe5e8;border-radius:8px;background:#fff;padding:7px}
+  #insolRuler26 svg{display:block;width:100%;height:auto}
+  .insolFrontTool .row.checkRow27{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .insolFrontTool .row.checkRow27 input{width:auto}
+</style>
+<script>
+(() => {
+  const STEP_MIN26=10;
+  const RULER_TICK_MIN26=30;
+  const COLORS26={dou:'#25a598',studio1:'#0b7f24',studio1_tol:'#8e9b37',twoRoom:'#efe64b',twoRoom_tol:'#f0a8b9',fail:'#e52020'};
+
+  // Add explicit latitude/date inputs to the visible tool.
+  const tool=document.querySelector('#insolFrontTool25 .insolFrontTool');
+  if(tool && !document.getElementById('insolLatitude26')){
+    const buildingRow=document.getElementById('insolFrontBuilding25')?.closest('.row');
+    const block=document.createElement('div');
+    block.innerHTML=`
+      <div class="row threeCols"><label>Широта, ° с.ш.</label><input id="insolLatitude26" type="number" min="-89.9" max="89.9" step="0.1" value="55.0"><button class="miniBtn" id="insolZoneDate26">Дата по зоне</button></div>
+      <div class="row"><label>Расчетная дата</label><input id="insolDate26" type="date" value="2026-04-22"></div>
+      <div class="row"><label>Солнечное время</label><input value="среднее" disabled></div>
+      <div class="row"><label>Шаг расчета</label><input value="10 мин" disabled></div>
+      <div class="row"><label>Шаг линий линейки</label><input value="30 мин" disabled></div>
+      <div id="insolRuler26"></div>`;
+    buildingRow?.insertAdjacentElement('afterend',block);
+    const norm=document.createElement('div'); norm.className='insolNormBox';
+    norm.innerHTML='<b>Метод:</b> виртуальная инсоляционная линейка по широте и расчетной дате. Положение солнца вычисляется в среднем солнечном времени; 30-минутные лучи линейки отображаются графически, расчет сегментов выполняется с шагом 10 минут.';
+    tool.appendChild(norm);
+  }
+  state.insolLatitude26 = Number(state.insolLatitude26)||55.0;
+  state.insolDate26 = state.insolDate26 || '2026-04-22';
+  state.insolLabels3D27 = state.insolLabels3D27 ?? true;
+  state.insolRuler3D27 = state.insolRuler3D27 ?? true;
+  if(tool && !document.getElementById('insolLabels3D27')){
+    const r=document.getElementById('insolRuler26');
+    const controls=document.createElement('div');
+    controls.innerHTML=`<div class="row checkRow27"><label>Время на каждом сегменте в 3D</label><input id="insolLabels3D27" type="checkbox" ${state.insolLabels3D27?'checked':''}></div><div class="row checkRow27"><label>Инсоляционная линейка в 3D</label><input id="insolRuler3D27" type="checkbox" ${state.insolRuler3D27?'checked':''}></div>`;
+    r?.insertAdjacentElement('afterend',controls);
+  }
+  if(document.getElementById('insolLatitude26')) document.getElementById('insolLatitude26').value=state.insolLatitude26;
+  if(document.getElementById('insolDate26')) document.getElementById('insolDate26').value=state.insolDate26;
+
+  function lat26(){ const v=Number(document.getElementById('insolLatitude26')?.value); return Number.isFinite(v)?Math.max(-89.9,Math.min(89.9,v)):55; }
+  function date26(){ return document.getElementById('insolDate26')?.value || '2026-04-22'; }
+  function dayOfYear26(d){ const start=new Date(Date.UTC(d.getUTCFullYear(),0,0)); return Math.floor((d-start)/86400000); }
+  // Solar position in mean solar time: latitude + date + solar clock only.
+  // Declination uses a standard Fourier approximation; no civil-time longitude correction is needed in mean solar time mode.
+  function sunPosRuler26(dateLocalSolar){
+    const phi=lat26()*Math.PI/180;
+    const n=dayOfYear26(dateLocalSolar);
+    const solarHour=dateLocalSolar.getUTCHours()+dateLocalSolar.getUTCMinutes()/60;
+    const gamma=2*Math.PI/365*(n-1+(solarHour-12)/24);
+    const decl=.006918-.399912*Math.cos(gamma)+.070257*Math.sin(gamma)-.006758*Math.cos(2*gamma)+.000907*Math.sin(2*gamma)-.002697*Math.cos(3*gamma)+.00148*Math.sin(3*gamma);
+    const H=(solarHour-12)*15*Math.PI/180;
+    const sinAlt=Math.sin(phi)*Math.sin(decl)+Math.cos(phi)*Math.cos(decl)*Math.cos(H);
+    const alt=Math.asin(Math.max(-1,Math.min(1,sinAlt)));
+    const az=Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(phi)-Math.tan(decl)*Math.cos(phi))+Math.PI;
+    return {alt,az};
+  }
+  function solarWindow26(){
+    const ds=date26();
+    const d0=new Date(ds+'T00:00:00Z');
+    const valid=[];
+    for(let m=0;m<24*60;m+=STEP_MIN26){
+      const d=new Date(d0.getTime()+m*60000); const sp=sunPosRuler26(d); if(sp.alt>0) valid.push(m);
+    }
+    if(!valid.length) return {start:8*60,end:17*60};
+    const trim=lat26()>58?90:60;
+    return {start:valid[0]+trim,end:valid[valid.length-1]-trim};
+  }
+  function topZ26(o){ const fh=Number(document.getElementById('floorHeight')?.value)||3; return objBaseElevation(o,fh)+obj3DHeight(o,fh); }
+  function shadowAtRuler26(caster, minute, targetZ){
+    const d=new Date(date26()+'T00:00:00Z'); d.setUTCMinutes(minute);
+    const sp=sunPosRuler26(d); if(sp.alt<=0) return null;
+    const dh=Math.max(0,topZ26(caster)-targetZ); if(dh<=.01) return null;
+    const len=Math.min(1500,dh/Math.tan(sp.alt));
+    const dx=-Math.sin(sp.az)*len,dy=Math.cos(sp.az)*len;
+    const c=corners(caster), pts=[...c,...c.map(([x,y])=>[x+dx,y+dy])]; return convexHull(pts);
+  }
+  function class26(maxCont,total){
+    const tests=[
+      ['dou',150,180],
+      ['studio1',120,150],
+      ['studio1_tol',110,140],
+      ['twoRoom',90,120],
+      ['twoRoom_tol',80,110]
+    ];
+    for(const [key,c,s] of tests){ if(maxCont>=c-1e-6 || (total>=s-1e-6 && maxCont>=60-1e-6)) return key; }
+    return 'fail';
+  }
+  function pointData26(pt,targetZ,o){
+    const win=solarWindow26(); let total=0,cur=0,maxCont=0;
+    for(let minute=win.start; minute<=win.end; minute+=STEP_MIN26){
+      let blocked=false;
+      for(const other of state.objects.filter(x=>x.kind==='building'&&x.id!==o.id&&isVisible(x))){
+        const poly=shadowAtRuler26(other,minute,targetZ); if(poly&&pointInPoly(pt,poly)){blocked=true;break;}
+      }
+      if(!blocked){ total+=STEP_MIN26; cur+=STEP_MIN26; maxCont=Math.max(maxCont,cur); } else cur=0;
+    }
+    const key=class26(maxCont,total); return {totalMin:total,maxContMin:maxCont,key,color:COLORS26[key]};
+  }
+  function localLineH26(o){ const fh=Number(document.getElementById('floorHeight')?.value)||3; const auto=o.groundFloorUse==='commercial'?fh*1.5:fh*.5; const v=Number(o.insolLineH); return v>0?v:auto; }
+  function absLineH26(o){ const fh=Number(document.getElementById('floorHeight')?.value)||3; return objBaseElevation(o,fh)+localLineH26(o); }
+  function signedArea26(pts){let s=0;for(let i=0;i<pts.length;i++){const a=pts[i],b=pts[(i+1)%pts.length];s+=a[0]*b[1]-b[0]*a[1]}return s/2;}
+  function segments26(o){
+    const pts=objectWorldPoints(o); if(!pts?.length) return []; const targetZ=absLineH26(o),ccw=signedArea26(pts)>0,out=[];
+    for(let i=0;i<pts.length;i++){
+      const a=pts[i],b=pts[(i+1)%pts.length],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy); if(len<.2)continue;
+      const n=Math.max(1,Math.ceil(len/3)),L=len/n,ux=dx/len,uy=dy/len,nx=ccw?uy:-uy,ny=ccw?-ux:ux;
+      for(let k=0;k<n;k++){
+        const a0=[a[0]+ux*k*L+nx*.18,a[1]+uy*k*L+ny*.18],b0=[a[0]+ux*(k+1)*L+nx*.18,a[1]+uy*(k+1)*L+ny*.18],mid=[(a0[0]+b0[0])/2,(a0[1]+b0[1])/2];
+        const d=pointData26(mid,targetZ,o); out.push({...d,a:a0,b:b0,mid,z:targetZ,normal:[nx,ny]});
+      }
+    }
+    return out;
+  }
+  function selectedB26(){ const id=document.getElementById('insolFrontBuilding25')?.value||state.insolFrontSelected; return state.objects.find(o=>o.id===id&&o.kind==='building')||state.objects.find(o=>o.kind==='building'); }
+  function fmtHM26(min){ const h=Math.floor(min/60),m=Math.round(min%60); return `${h} ч ${String(m).padStart(2,'0')} мин`; }
+  function updateSummary26(){ return; /* superseded by v0.33 */ 
+    const o=selectedB26(); if(!o)return; const ss=segments26(o),cnt={}; ss.forEach(s=>cnt[s.key]=(cnt[s.key]||0)+1);
+    const maxC=ss.length?Math.min(...ss.map(s=>s.maxContMin)):0, minSum=ss.length?Math.min(...ss.map(s=>s.totalMin)):0;
+    const el=document.getElementById('insolFrontSummary25'); if(el) el.innerHTML=`<b>${o.label}</b><br>Широта: <b>${lat26().toFixed(1)}°</b> · дата: <b>${date26()}</b><br>Высота абриса: <b>${localLineH26(o).toFixed(1)} м</b> · шаг: <b>3,0 м</b> · сегментов: <b>${ss.length}</b><br>Мин. непрерывно: <b>${fmtHM26(maxC)}</b> · мин. суммарно: <b>${fmtHM26(minSum)}</b><br><span style="color:${COLORS26.dou}">■</span> ${cnt.dou||0} &nbsp;<span style="color:${COLORS26.studio1}">■</span> ${cnt.studio1||0} &nbsp;<span style="color:${COLORS26.studio1_tol}">■</span> ${cnt.studio1_tol||0} &nbsp;<span style="color:${COLORS26.twoRoom}">■</span> ${cnt.twoRoom||0} &nbsp;<span style="color:${COLORS26.twoRoom_tol}">■</span> ${cnt.twoRoom_tol||0} &nbsp;<span style="color:${COLORS26.fail}">■</span> ${cnt.fail||0}`;
+  }
+  function drawRuler26(){ return; /* superseded by v0.33 */ 
+    const box=document.getElementById('insolRuler26'); if(!box)return; const w=260,h=170,cx=130,cy=150,R=118; const win=solarWindow26(); let svg=`<svg viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" rx="6" fill="#fbfdfd"/><text x="8" y="14" font-size="9" font-weight="800" fill="#49616a">Виртуальная инсоляционная линейка · ${lat26().toFixed(1)}° · ${date26()}</text>`;
+    for(let min=Math.ceil(win.start/RULER_TICK_MIN26)*RULER_TICK_MIN26;min<=win.end;min+=RULER_TICK_MIN26){
+      const d=new Date(date26()+'T00:00:00Z'); d.setUTCMinutes(min); const sp=sunPosRuler26(d); if(sp.alt<=0)continue; const theta=sp.az-Math.PI; const x=cx+Math.sin(theta)*R,y=cy-Math.cos(theta)*R; const major=min%60===0; svg+=`<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${major?'#718992':'#b4c5ca'}" stroke-width="${major?1.1:.65}"/>`; if(major){const tx=cx+Math.sin(theta)*(R+10),ty=cy-Math.cos(theta)*(R+10);svg+=`<text x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" font-size="7" text-anchor="middle" fill="#5f757d">${Math.floor(min/60)}</text>`;}
+    }
+    svg+=`<circle cx="${cx}" cy="${cy}" r="3" fill="#173342"/><text x="8" y="162" font-size="7" fill="#73878e">Лучи 30 мин; расчет тени — каждые 10 мин</text></svg>`; box.innerHTML=svg;
+  }
+  function draw2D26(){ return; /* superseded by v0.33 */ 
+    if(!state.insolFrontVisible)return; document.getElementById('insolFront2D25')?.remove(); document.getElementById('insolFront2D26')?.remove(); const o=selectedB26(); if(!o)return; const g=document.createElementNS(ns,'g');g.id='insolFront2D26';
     for(const s of segments26(o)){const l=document.createElementNS(ns,'line');l.setAttribute('x1',s.a[0]);l.setAttribute('y1',s.a[1]);l.setAttribute('x2',s.b[0]);l.setAttribute('y2',s.b[1]);l.setAttribute('stroke',s.color);l.setAttribute('stroke-width','4');l.setAttribute('stroke-linecap','round');l.setAttribute('vector-effect','non-scaling-stroke');g.appendChild(l);}
     objLayer.appendChild(g);
   }
@@ -3289,5 +3895,4 @@ window.graphics44={plan};renderAll();
 </script>
 <script src="meta-massing-bridge.js"></script>
 </body></html>
-
 
