@@ -135,13 +135,16 @@ overlay.innerHTML='<div id="metaStartCard" role="dialog" aria-modal="true" aria-
  '<button type="button" id="metaPrev">↩ Предыдущий проект<small>Восстановить автосохранение или последний сценарий</small></button></div></div>';
 document.body.appendChild(overlay);
 var snapshot=stored();
+// Always show a genuinely blank workspace on startup. Keep the captured project
+// only as an explicit restore option; never render it before the user asks.
+if(snapshot&&meaningfulProject(snapshot)){try{localStorage.setItem(ARCHIVE,JSON.stringify(snapshot));}catch(e){}}
+resetNewProject();
 overlay.querySelector("#metaPrev").disabled=!snapshot;
 function activate(usePrevious){
  overlay.remove();active=true;
  if(usePrevious&&snapshot){
   try{applySaved(snapshot);}catch(e){console.warn("Не удалось восстановить проект",e);alert("Не удалось восстановить автоматически. Загрузите прежний JSON через кнопку «Загрузить».");}
  }else{
-  if(snapshot&&meaningfulProject(snapshot)){try{localStorage.setItem(ARCHIVE,JSON.stringify(snapshot));}catch(e){}}
   resetNewProject();
  }
  if(queued){var p=queued;queued=null;setTimeout(function(){try{importSection(p);}catch(e){alert("Ошибка передачи секции: "+e.message);}},usePrevious?250:25);}
