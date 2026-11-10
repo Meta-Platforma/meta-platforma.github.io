@@ -139,6 +139,7 @@ var snapshot=stored();
 // only as an explicit restore option; never render it before the user asks.
 if(snapshot&&meaningfulProject(snapshot)){try{localStorage.setItem(ARCHIVE,JSON.stringify(snapshot));}catch(e){}}
 resetNewProject();
+document.documentElement.classList.remove("meta-start-pending");
 overlay.querySelector("#metaPrev").disabled=!snapshot;
 function activate(usePrevious){
  overlay.remove();active=true;
