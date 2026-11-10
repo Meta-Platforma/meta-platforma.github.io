@@ -2033,15 +2033,45 @@ function composeFloor(){
     // симметричный сдвиг каждой стороны от своего собственного центра и торец опять "ступенькой" (баг был
     // именно в этом шаге: x0 считался НЕЗАВИСИМО по totals[idx] каждой строки, а не по общей паре).
     // Блок "узел + ряд" центрируется целиком, а сам ряд стартует уже за узлом (если тот слева).
-    var compBlockX0=(plainIdx.length===2)?(overall-(tA+compW))/2:null;
+    // Не центрируем недобранный ряд: центрирование делило остаток на два видимых фасадных зазора.
+    // Блок начинается от левого фронта, а свободная длина ниже собирается в одном внутреннем месте.
+    var compBlockX0=(plainIdx.length===2)?0:null;
     var pairSharedX0=(plainIdx.length===2)?(compBlockX0+compWL):null;
+    function edgePackPlainRow(sr,pr,span){
+      var slack=Math.round(span-pr.total);
+      if(slack<=1||sr.forms.length<2)return{split:-1,slack:0,extra:null};
+      // Разрыв ставим около середины ряда, но никогда не разрываем готовую пару выступ+вырез.
+      var split=-1,best=Infinity;
+      for(var k=1;k<sr.forms.length;k++){
+        if((sr.back[k]||0)>0)continue;
+        var boundary=pr.positions[k].x-pr.positions[0].x;
+        var score=Math.abs(boundary+slack/2-span/2);
+        if(score<best){best=score;split=k;}
+      }
+      if(split<0)return{split:-1,slack:0,extra:null};
+      for(var k=split;k<pr.positions.length;k++)pr.positions[k].x+=slack;
+      // После объединения двух краевых зазоров проверяем, помещается ли в остаток обычная 1С.
+      var extras=APARTMENTS.filter(function(a){return a.type==="1С"&&!isTorec(a)&&!isOType(a)&&!getPairInfo(a)&&a.w<=slack&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a);});
+      extras.sort(function(a,b){return b.area-a.area||b.w-a.w;});
+      return{split:split,slack:slack,extra:extras[0]||null};
+    }
     openSegs.forEach(function(seg,idx){
       if(seg.excl)return;
       var ci=cornerInfo[idx];
       if(ci.start||ci.end)return;
-      var sr=srs[idx],x0=(pairSharedX0!==null&&(idx===iA||idx===iB))?pairSharedX0:(overall-totals[idx])/2;
+      var sr=srs[idx],x0=(pairSharedX0!==null&&(idx===iA||idx===iB))?pairSharedX0:0;
       var pr=placeSideRow(sr,x0,seg.anchorY,seg.dir,rowShiftCap(seg));
-      for(var i=0;i<sr.forms.length;i++){var f=sr.forms[i],ps=pr.positions[i];var np={uid:nu(),fid:f.id,kind:"apt",x:ps.x,y:mop.y+ps.y,rot:0,mx:!!(sr.mx&&sr.mx[i]),my:seg.dir>0,segId:seg.segId,rowAxis:"x"};if((sr.back[i]||0)>0)np.pairedWithPrev=true;localPlaced.push(np);}
+      var rowSpan=(pairSharedX0!==null&&(idx===iA||idx===iB))?Math.max(0,overall-compW):overall;
+      var packed=edgePackPlainRow(sr,pr,rowSpan);
+      for(var i=0;i<sr.forms.length;i++){
+        if(i===packed.split&&packed.extra){
+          var prev=sr.forms[i-1],gapX=pr.positions[i-1].x+prev.w;
+          localPlaced.push({uid:nu(),fid:packed.extra.id,kind:"apt",x:gapX,y:mop.y+torecShiftedY(seg.anchorY,seg.dir,packed.extra,0,rowShiftCap(seg)),rot:0,mx:false,my:seg.dir>0,segId:seg.segId,rowAxis:"x"});
+        }
+        var f=sr.forms[i],ps=pr.positions[i];var np={uid:nu(),fid:f.id,kind:"apt",x:ps.x,y:mop.y+ps.y,rot:0,mx:!!(sr.mx&&sr.mx[i]),my:seg.dir>0,segId:seg.segId,rowAxis:"x"};
+        if(i===packed.split){var freeGap=packed.slack-(packed.extra?packed.extra.w:0);if(freeGap>0)np.gapBefore=freeGap;}
+        if((sr.back[i]||0)>0)np.pairedWithPrev=true;localPlaced.push(np);
+      }
     });
     // Постановка составного узла (см. COMPO_PAIR/COMPO_DY). По X узел прижат к своему концу блока; по Y
     // центрируется на глубине МОП, чтобы одинаково выступать за оба ряда — по п.4.1 узлу разрешено быть
@@ -2308,6 +2338,17 @@ function autoFitPlatform(platformType,mopId){
   if(lastFit)lastFit.type=platformType;
 }
 
+function mopLiftShaftArea(m){
+  var count=parseInt(String(m&&m.lifts||"0"),10)||0;if(!count)return 0;
+  var holes=[];
+  for(var zi=0;zi<(m.zones||[]).length;zi++){
+    var z=m.zones[zi];if(z.mat!=="llu"||!z.loops||z.loops.length<2)continue;
+    for(var li=1;li<z.loops.length;li++)holes.push(polygonAreaMM(z.loops[li])/1e6);
+  }
+  // В данных МОП первый контур ЛЛУ — наружный, внутренние контуры — лестница и шахты.
+  // Шахты лифтов — count наименьших внутренних прямоугольников; крупный контур лестницы исключается.
+  holes.sort(function(a,b){return a-b;});return holes.slice(0,count).reduce(function(s,a){return s+a;},0);
+}
 function computeRealFloorTEP(){
   var apts=[],mops=[];
   for(var i=0;i<placed.length;i++){
@@ -2317,10 +2358,13 @@ function computeRealFloorTEP(){
   var saleArea=0;for(var i=0;i<apts.length;i++)saleArea+=apts[i].area;
   var mopArea=0;for(var i=0;i<mops.length;i++)mopArea+=polygonAreaMM(mops[i].pts)/1e6;
   var grossArea=saleArea+mopArea;
+  var liftShaftArea=0;for(var i=0;i<mops.length;i++)liftShaftArea+=mopLiftShaftArea(mops[i]);
+  var kepPrelimBase=Math.max(0,grossArea-liftShaftArea);
+  var kepPrelim=kepPrelimBase>0?saleArea/kepPrelimBase:0;
   var kep=grossArea>0?saleArea/grossArea:0;
   var byType={};
   for(var i=0;i<apts.length;i++){var a=apts[i];if(!byType[a.type])byType[a.type]={count:0,area:0};byType[a.type].count++;byType[a.type].area+=a.area;}
-  return{apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,grossArea:Math.round(grossArea),kep:kep,byType:byType};
+  return{apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,grossArea:Math.round(grossArea),liftShaftArea:Math.round(liftShaftArea*10)/10,kepPrelimBase:Math.round(kepPrelimBase*10)/10,kepPrelim:kepPrelim,kep:kep,byType:byType};
 }
 
 function downloadJSON(name,data){
@@ -2356,7 +2400,9 @@ function exportPlatformFact(){
       saleArea_m2:tep.saleArea,
       mopArea_m2:tep.mopArea,
       grossArea_m2:tep.grossArea,
-      kep:Math.round(tep.kep*10000)/10000
+      kep:Math.round(tep.kep*10000)/10000,
+      liftShaftArea_m2:tep.liftShaftArea,
+      kepPreliminary:Math.round(tep.kepPrelim*10000)/10000
     },
     breakdown:tep.byType
   };
@@ -2762,7 +2808,7 @@ function renderTEPOverlay(){
     var t=keys[i],d=byType[t],s=st(t),pct=(d.count/totalC*100);
     rows+='<tr><td><span class="tovdot" style="background:'+s.c+'"></span>'+t+'</td><td>'+d.count+'</td><td>'+d.area+' м²</td><td>'+(d.count*floors)+'</td><td>'+(d.area*floors)+' м²</td><td>'+pct.toFixed(1)+'%</td></tr>';
   }
-  el.innerHTML='<table><thead><tr><th>Тип</th><th>Кол/эт</th><th>S/эт</th><th>Кол всего</th><th>S всего</th><th>Доля</th></tr></thead><tbody>'+rows+'<tr class="tovtotal"><td>ИТОГО</td><td>'+totalC+'</td><td>'+totalA+' м²</td><td>'+(totalC*floors)+'</td><td>'+(totalA*floors)+' м²</td><td>100%</td></tr><tr><td>Ср. S кв.</td><td colspan="5">'+(totalC?(totalA/totalC).toFixed(1):"0")+' м²</td></tr><tr title="КЭП = продаваемая площадь квартир / строительная площадь этажа (квартиры + МОП)"><td>КЭП</td><td colspan="5"><b>'+floorTep.kep.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / '+floorTep.grossArea+' м²)</span></td></tr></tbody></table>';
+  el.innerHTML='<table><thead><tr><th>Тип</th><th>Кол/эт</th><th>S/эт</th><th>Кол всего</th><th>S всего</th><th>Доля</th></tr></thead><tbody>'+rows+'<tr class="tovtotal"><td>ИТОГО</td><td>'+totalC+'</td><td>'+totalA+' м²</td><td>'+(totalC*floors)+'</td><td>'+(totalA*floors)+' м²</td><td>100%</td></tr><tr><td>Ср. S кв.</td><td colspan="5">'+(totalC?(totalA/totalC).toFixed(1):"0")+' м²</td></tr><tr title="КЭП = продаваемая площадь квартир / строительная площадь этажа (квартиры + МОП)"><td>КЭП</td><td colspan="5"><b>'+floorTep.kep.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / '+floorTep.grossArea+' м²)</span></td></tr><tr title="КЭП предварительный = площадь квартир / (строительная площадь − шахты лифтов)"><td>КЭП предварительный</td><td colspan="5"><b>'+floorTep.kepPrelim.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / ('+floorTep.grossArea+' − '+floorTep.liftShaftArea+') м²)</span></td></tr></tbody></table>';
 }
 
 function drawDockIssues(){
@@ -4158,7 +4204,9 @@ function renderFactCard(floors){
   h+='<tr><td>S продаваемая / этаж (сумма квартир)</td><td><b>'+tep.saleArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S МОП / этаж (по контуру)</td><td><b>'+tep.mopArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S строительная / этаж (кв. + МОП)</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
+  h+='<tr><td>S шахт лифтов / этаж</td><td><b>'+tep.liftShaftArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>КЭП (S прод / S стр)</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
+  h+='<tr><td>КЭП предварительный (S кв. / (S стр. − шахты))</td><td><b>'+tep.kepPrelim.toFixed(4)+'</b></td></tr>';
   h+='</tbody></table>';
   if(lastFit){
     var devTop=lastFit.achievedTop-lastFit.targetW,devBot=lastFit.achievedBot-lastFit.targetW;
@@ -4186,7 +4234,7 @@ window.getMetaMassingPayload=function(){
   }
   if(!isFinite(minX))throw new Error("В плане нет геометрии для передачи");
   var tep=computeRealFloorTEP(),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18);
-  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,kep:Math.round(tep.kep*10000)/10000},parts:parts};
+  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,liftShaftArea_m2:tep.liftShaftArea,kep:Math.round(tep.kep*10000)/10000,kepPreliminary:Math.round(tep.kepPrelim*10000)/10000},parts:parts};
 };
 </script>
 <script>
@@ -4208,7 +4256,7 @@ function layoutGeometry(items){
   return {shapes:all,bounds:{minX:minX,minY:minY,maxX:maxX,maxY:maxY,width:(maxX-minX)/1000,depth:(maxY-minY)/1000}};
 }
 function layoutMetrics(result){
-  var items=result.placedArr||[],types={},sale=0,mc=0,mop=0;
+  var items=result.placedArr||[],types={},sale=0,mc=0,mop=0,lift=0;
   for(var i=0;i<items.length;i++){
     var p=items[i],f=fF(p);if(!f)continue;
     if(p.kind==="apt"){
@@ -4216,10 +4264,11 @@ function layoutMetrics(result){
       sale+=a;mc++;
       if(!types[t])types[t]={count:0,min:Infinity,max:-Infinity};
       types[t].count++;types[t].min=Math.min(types[t].min,a);types[t].max=Math.max(types[t].max,a);
-    }else if(p.kind==="mop"&&f.pts) mop+=polygonAreaMM(f.pts)/1e6;
+    }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);}
   }
   var geo=layoutGeometry(items);if(!geo)return null;
-  return {sale:sale,mop:mop,gross:sale+mop,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
+  var gross=sale+mop,prelimBase=Math.max(0,gross-lift);
+  return {sale:sale,mop:mop,gross:gross,liftShaftArea:lift,kepPrelim:prelimBase?sale/prelimBase:0,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
 }
 function layoutImage(metrics){
   var geo=metrics.geo,b=geo.bounds,cv2=document.createElement("canvas");
@@ -4266,6 +4315,7 @@ function renderLayoutOptions(){
     html+='<span>Габарит: ширина (Y)</span><strong>'+layoutNumber(b.depth)+' м</strong>';
     html+='<span>Площадь квартир / этаж</span><strong>'+layoutNumber(m.sale)+' м²</strong>';
     html+='<span>Строительная площадь / этаж</span><strong>'+layoutNumber(m.gross)+' м²</strong>';
+    html+='<span>КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
     html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
     html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
     html+='<table class="layout-types"><thead><tr><th>Тип квартир</th><th>Площадь, от–до</th><th>Доля</th></tr></thead><tbody>';
@@ -4330,3 +4380,4 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.ge
 </script>
 </body>
 </html>
+
