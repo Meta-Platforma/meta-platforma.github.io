@@ -63,6 +63,7 @@ canvas{position:absolute;top:0;left:0}
 .hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text-sec);background:var(--surface);padding:4px 12px;border-radius:12px;border:1px solid var(--border)}
 .catalog-cloud{position:absolute;z-index:40;display:none;width:430px;max-width:calc(100% - 24px);background:rgba(255,255,255,.97);border:1px solid var(--bs);border-radius:12px;box-shadow:0 16px 42px rgba(15,23,42,.18);padding:10px;pointer-events:none;backdrop-filter:blur(8px)}
 .catalog-cloud.open{display:block}
+.catalog-cloud{pointer-events:none}
 .catalog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
 .catalog-title{font-size:11px;font-weight:700;line-height:1.25}
 .catalog-sub{font-size:9px;color:var(--text-muted);margin-top:2px}
@@ -2588,7 +2589,7 @@ function renderCatalogCloud(src,sx,sy){
     h+='<div class="catalog-grid">';
     for(var i=0;i<list.length;i++){
       var a=list[i],meta=(a.area!=null?a.area+' м²':'S уточняется')+(a.depth!=null?' · гл. '+a.depth+' м':'');
-      var imgSrc=/^https?:\/\//i.test(a.img||"")?a.img:"catalog/"+(a.img||"");
+      var imgSrc=/^(https?:\/\/|\/)/i.test(a.img||"")?a.img:(String(a.img||"").indexOf("catalog/")===0?a.img:"catalog/"+(a.img||""));
       h+='<div class="catalog-card"><img src="'+escHtml(imgSrc)+'" alt=""><div class="catalog-card-body"><div class="catalog-card-name" title="'+escHtml(a.name)+'">'+escHtml(a.name)+'</div><div class="catalog-card-meta">'+escHtml(meta)+'</div></div></div>';
     }
     h+='</div>';
