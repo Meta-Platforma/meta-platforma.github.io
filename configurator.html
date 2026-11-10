@@ -255,7 +255,7 @@ html.embedded header .meta-nav{display:none}
   <div class="layout-footer"><span id="layoutStatus">Показаны найденные варианты. Поиск не является математическим перебором всех комбинаций.</span><button class="layout-more" id="layoutMore" type="button">Найти ещё варианты</button></div>
  </div>
 </div>
-<script src="catalog/catalog-data.js"></script>
+<script src="catalog/catalog-data.js?v=48"></script>
 <script>
 var APARTMENTS=[
 {id:"1363169",type:"1С",name:"1С_7.0х3.6",area:20,w:3600,d:7000,p27m:0,p27p:0,p23m:0,p23p:0,torec:0,torec15:0,torecN:0,pts:[[3600,0],[0,0],[0,7000],[635,7000],[635,6730],[1530,6730],[1530,7000],[3600,7000]]},
@@ -4304,7 +4304,7 @@ function searchLayoutOptions(quantity){
       catch(e){console.warn("Не удалось построить вариант",e);remaining=0;status.textContent="Поиск прерван: "+(e.message||e);break;}
       remaining--;
     }
-    renderLayoutOptions();
+    if(remaining===0||remaining%9===0)renderLayoutOptions();
     if(remaining>0){setTimeout(step,0);}
     else{more.disabled=false;status.textContent="Найдено "+LAYOUT_VARIANTS.length+" компоновок за "+LAYOUT_ATTEMPTS+" попыток. Комбинаций может быть больше — нажмите «Найти ещё варианты»."; }
   }
