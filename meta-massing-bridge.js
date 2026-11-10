@@ -5,7 +5,18 @@ var STORE="meta-rayon-last-project-v044",ARCHIVE="meta-rayon-previous-project-ar
 var active=false,queued=null,saveTimer=null,lastSaveError=false;
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function r(n){return Math.round((Number(n)||0)*100)/100;}
-function stored(){try{var d=JSON.parse(localStorage.getItem(STORE)||"null");if(d&&Array.isArray(d.objects))return d;}catch(e){}try{var records=readSc();if(records.length&&Array.isArray(records[records.length-1].data.objects))return records[records.length-1].data;}catch(e){}return null;}
+function validProject(d){return !!(d&&Array.isArray(d.objects));}
+function meaningfulProject(d){return validProject(d)&&(d.objects.length>0||d.underlay||d.terrain33);}
+function readLocal(key){try{var d=JSON.parse(localStorage.getItem(key)||"null");return validProject(d)?d:null;}catch(e){return null;}}
+function stored(){
+ var current=readLocal(STORE),archived=readLocal(ARCHIVE);
+ // An empty new workspace must not hide the last real project kept in the archive.
+ if(meaningfulProject(current))return current;
+ if(archived)return archived;
+ if(current)return current;
+ try{var records=readSc();if(records.length&&validProject(records[records.length-1].data))return records[records.length-1].data;}catch(e){}
+ return null;
+}
 function store(){if(!active)return;try{localStorage.setItem(STORE,JSON.stringify(serialize()));lastSaveError=false;}catch(e){if(!lastSaveError){console.warn("Автосохранение недоступно: сохраните проект кнопкой JSON.",e);lastSaveError=true;}}}
 function later(){if(!active)return;clearTimeout(saveTimer);saveTimer=setTimeout(store,1200);}
 var previousSync=syncBlockMetrics;
@@ -92,6 +103,22 @@ function applySaved(data){
  dt.items.add(file);input.files=dt.files;
  input.dispatchEvent(new Event("change",{bubbles:true}));
 }
+function resetNewProject(){
+ clearTimeout(saveTimer);
+ state.siteArea=458835.66;state.siteW=800;state.siteH=458835.66/800;
+ state.densityTarget=2.5;state.platformShare=80;state.individualShare=20;state.product="standard";
+ state.objects=[];state.selected=null;state.armed=null;state.seq=1;
+ state.zoom=1;state.panX=0;state.panY=0;state.showSun=true;state.undo=[];
+ state.drag=null;state.resize=null;state.vertex=null;state.edgeDrag=null;state.roadVertex=null;
+ state.calloutId=null;state.calloutPos=null;state.calloutOffset=null;state.calloutClassOpen=false;
+ state.pinnedCallouts=[];state.dimensionChains=[];state.underlay=null;state.terrain33=null;state.insol34=null;
+ state.sun33={latitude:55,date:"2026-04-22",north:0,step:2,trim:0,all:true};
+ state.layers={parking:true,land:true,stage:true,road:true,stylobat:true,limit:true,firegap:true,sangap:true,underlay:true,model1:true,model2:true,model3:true,model4:true};
+ var values={siteArea:state.siteArea,densityTarget:state.densityTarget,platformShare:state.platformShare,individualShare:state.individualShare,productClass:state.product};
+ Object.keys(values).forEach(function(id){var el=document.getElementById(id);if(el)el.value=values[id];});
+ try{localStorage.removeItem(STORE);}catch(e){}
+ if(typeof resizeSite==="function")resizeSite();else if(typeof renderAll==="function")renderAll();
+}
 var css=document.createElement("style");
 css.textContent="#metaStartOverlay{position:fixed;inset:0;z-index:999999;background:rgba(12,27,39,.8);display:flex;align-items:center;justify-content:center;padding:18px}"+
  "#metaStartCard{max-width:530px;width:100%;background:#fff;border-radius:14px;padding:26px;box-shadow:0 20px 65px #0005;color:#203247}"+
@@ -113,7 +140,10 @@ function activate(usePrevious){
  overlay.remove();active=true;
  if(usePrevious&&snapshot){
   try{applySaved(snapshot);}catch(e){console.warn("Не удалось восстановить проект",e);alert("Не удалось восстановить автоматически. Загрузите прежний JSON через кнопку «Загрузить».");}
- }else if(snapshot){try{localStorage.setItem(ARCHIVE,JSON.stringify(snapshot));}catch(e){}}
+ }else{
+  if(snapshot&&meaningfulProject(snapshot)){try{localStorage.setItem(ARCHIVE,JSON.stringify(snapshot));}catch(e){}}
+  resetNewProject();
+ }
  if(queued){var p=queued;queued=null;setTimeout(function(){try{importSection(p);}catch(e){alert("Ошибка передачи секции: "+e.message);}},usePrevious?250:25);}
 }
 overlay.querySelector("#metaNew").onclick=function(){activate(false);};
@@ -127,3 +157,4 @@ window.addEventListener("pagehide",store);
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")store();});
 if(parent!==window)parent.postMessage({type:"META_MASSING_READY"},location.origin);
 })();
+
