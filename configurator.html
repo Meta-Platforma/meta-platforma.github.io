@@ -4186,5 +4186,144 @@ window.getMetaMassingPayload=function(){
   return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,kep:Math.round(tep.kep*10000)/10000},parts:parts};
 };
 </script>
+<script>
+// Автоподбор: собираем независимые кандидаты, а рабочую геометрию обновляем только после выбора.
+var LAYOUT_VARIANTS=[],LAYOUT_KEYS={},LAYOUT_MAKER=null,LAYOUT_FIT=null,LAYOUT_SEARCH_TOKEN=0,LAYOUT_ATTEMPTS=0;
+function layoutNumber(v,d){return (Number(v)||0).toFixed(d===undefined?1:d);}
+function layoutGeometry(items){
+  var all=[],minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(var i=0;i<items.length;i++){
+    var p=items[i],f=fF(p);if(!f||!f.pts||!f.pts.length)continue;
+    var points=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my).map(function(q){
+      var x=q[0]+p.x,y=q[1]+p.y;
+      minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+      return [x,y];
+    });
+    all.push({kind:p.kind,name:f.name||"",type:f.type||"",points:points});
+  }
+  if(!isFinite(minX))return null;
+  return {shapes:all,bounds:{minX:minX,minY:minY,maxX:maxX,maxY:maxY,width:(maxX-minX)/1000,depth:(maxY-minY)/1000}};
+}
+function layoutMetrics(result){
+  var items=result.placedArr||[],types={},sale=0,mc=0,mop=0;
+  for(var i=0;i<items.length;i++){
+    var p=items[i],f=fF(p);if(!f)continue;
+    if(p.kind==="apt"){
+      var a=Number(f.area)||0,t=String(f.type||"—");
+      sale+=a;mc++;
+      if(!types[t])types[t]={count:0,min:Infinity,max:-Infinity};
+      types[t].count++;types[t].min=Math.min(types[t].min,a);types[t].max=Math.max(types[t].max,a);
+    }else if(p.kind==="mop"&&f.pts) mop+=polygonAreaMM(f.pts)/1e6;
+  }
+  var geo=layoutGeometry(items);if(!geo)return null;
+  return {sale:sale,mop:mop,gross:sale+mop,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
+}
+function layoutImage(metrics){
+  var geo=metrics.geo,b=geo.bounds,cv2=document.createElement("canvas");
+  cv2.width=660;cv2.height=330;
+  var ct=cv2.getContext("2d");ct.fillStyle="#f8fafb";ct.fillRect(0,0,cv2.width,cv2.height);
+  var sx=(cv2.width-34)/(b.maxX-b.minX||1),sy=(cv2.height-34)/(b.maxY-b.minY||1),sc=Math.min(sx,sy);
+  var ox=(cv2.width-(b.maxX-b.minX)*sc)/2-b.minX*sc,oy=(cv2.height-(b.maxY-b.minY)*sc)/2-b.minY*sc;
+  for(var i=0;i<geo.shapes.length;i++){
+    var f=geo.shapes[i],pts=f.points;if(!pts.length)continue;
+    ct.beginPath();
+    for(var j=0;j<pts.length;j++){var x=ox+pts[j][0]*sc,y=oy+pts[j][1]*sc;if(!j)ct.moveTo(x,y);else ct.lineTo(x,y);}
+    ct.closePath();
+    ct.fillStyle=f.kind==="mop"?"#e2d9cb":(f.type==="1С"?"#deebfb":f.type==="1К/2С"?"#dbeee5":f.type==="3С"?"#e9e1f5":"#f3e5d6");
+    ct.fill();ct.strokeStyle=f.kind==="mop"?"#807b72":"#627b91";ct.lineWidth=1.2;ct.stroke();
+    if(f.kind==="apt"){var xs=pts.reduce(function(s,q){return s+q[0];},0)/pts.length,ys=pts.reduce(function(s,q){return s+q[1];},0)/pts.length;
+      ct.fillStyle="#314457";ct.font="bold 10px sans-serif";ct.textAlign="center";ct.fillText(f.type,ox+xs*sc,oy+ys*sc);
+    }
+  }
+  return cv2.toDataURL("image/png");
+}
+function addLayoutOption(result){
+  if(!result||!result.placedArr||!result.placedArr.length)return;
+  var stats=layoutMetrics(result);if(!stats||!stats.apartments)return;
+  if(constraints.strict.area&&(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01))return;
+  var key=result.placedArr.map(function(p){return [p.kind,p.fid,Math.round(p.x/10),Math.round(p.y/10),p.rot||0,p.mx?1:0,p.my?1:0].join(":");}).sort().join("|");
+  if(LAYOUT_KEYS[key])return;
+  LAYOUT_KEYS[key]=true;
+  var id=LAYOUT_VARIANTS.length+1;
+  LAYOUT_VARIANTS.push({id:id,result:result,stats:stats,fit:LAYOUT_FIT(result),image:layoutImage(stats)});
+}
+function renderLayoutOptions(){
+  var sort=document.getElementById("layoutSort").value;
+  var items=LAYOUT_VARIANTS.slice().sort(function(a,b){
+    return sort==="gross"?(a.stats.gross-b.stats.gross||b.stats.sale-a.stats.sale):(b.stats.sale-a.stats.sale||a.stats.gross-b.stats.gross);
+  });
+  document.getElementById("layoutCount").textContent="Найдено "+items.length+" разных компоновок · "+LAYOUT_ATTEMPTS+" попыток поиска";
+  var html="";
+  for(var i=0;i<items.length;i++){
+    var v=items[i],m=v.stats,b=m.geo.bounds;
+    html+='<article class="layout-card"><div class="layout-card-head"><span>Вариант №'+v.id+'</span><span class="layout-small">S квартир '+layoutNumber(m.sale)+' м²</span></div>';
+    html+='<img alt="Схема этажа — вариант '+v.id+'" src="'+v.image+'">';
+    html+='<div class="layout-card-body"><div class="layout-metrics">';
+    html+='<span>Габарит: длина (X)</span><strong>'+layoutNumber(b.width)+' м</strong>';
+    html+='<span>Габарит: ширина (Y)</span><strong>'+layoutNumber(b.depth)+' м</strong>';
+    html+='<span>Площадь квартир / этаж</span><strong>'+layoutNumber(m.sale)+' м²</strong>';
+    html+='<span>Строительная площадь / этаж</span><strong>'+layoutNumber(m.gross)+' м²</strong>';
+    html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
+    html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
+    html+='<table class="layout-types"><thead><tr><th>Тип квартир</th><th>Площадь, от–до</th><th>Доля</th></tr></thead><tbody>';
+    var order=["1С","1К/2С","3С","4С"];
+    Object.keys(m.types).forEach(function(t){if(order.indexOf(t)<0)order.push(t);});
+    for(var j=0;j<order.length;j++){var t=order[j],d=m.types[t];if(!d)continue;
+      html+='<tr><td>'+escHtml(t)+'</td><td>'+layoutNumber(d.min)+'–'+layoutNumber(d.max)+' м²</td><td>'+layoutNumber(d.count/m.apartments*100,0)+'% ('+d.count+')</td></tr>';
+    }
+    html+='</tbody></table><button class="layout-choose" type="button" data-choice="'+v.id+'">Выбрать этот вариант</button></div></article>';
+  }
+  document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" style="padding:15px">Подходящих компоновок пока нет. Поиск продолжается или ограничения слишком строгие.</p>';
+  document.querySelectorAll("#layoutTiles [data-choice]").forEach(function(button){
+    button.onclick=function(){selectLayoutOption(+this.getAttribute("data-choice"));};
+  });
+}
+function selectLayoutOption(id){
+  var choice=LAYOUT_VARIANTS.find(function(v){return v.id===id;});if(!choice)return;
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;
+  placed=choice.result.placedArr.map(function(p){return Object.assign({},p);});
+  uidC=placed.reduce(function(m,p){return Math.max(m,p.uid);},0);
+  sel=null;lastFit=Object.assign({},choice.fit);
+  ACTIVE_TYPES=null;CURRENT_DEPTH_SET=null;PROFILE_ACTIVE=false;CURRENT_MOP_TYPE=null;
+  document.getElementById("layoutChooser").classList.remove("open");
+  document.getElementById("hint").style.display="none";
+  resetView();draw();updateProps();if(mode==="auto")showAutoPanel();
+}
+function closeLayoutOptions(){
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;
+  document.getElementById("layoutChooser").classList.remove("open");
+}
+function searchLayoutOptions(quantity){
+  var token=++LAYOUT_SEARCH_TOKEN,remaining=Math.max(0,quantity||50),more=document.getElementById("layoutMore"),status=document.getElementById("layoutStatus");
+  more.disabled=true;
+  function step(){
+    if(token!==LAYOUT_SEARCH_TOKEN||!LAYOUT_MAKER)return;
+    var batch=Math.min(2,remaining);
+    for(var i=0;i<batch;i++){
+      try{var r=LAYOUT_MAKER();LAYOUT_ATTEMPTS++;addLayoutOption(r);}
+      catch(e){console.warn("Не удалось построить вариант",e);remaining=0;status.textContent="Поиск прерван: "+(e.message||e);break;}
+      remaining--;
+    }
+    renderLayoutOptions();
+    if(remaining>0){setTimeout(step,0);}
+    else{more.disabled=false;status.textContent="Найдено "+LAYOUT_VARIANTS.length+" компоновок за "+LAYOUT_ATTEMPTS+" попыток. Комбинаций может быть больше — нажмите «Найти ещё варианты»."; }
+  }
+  setTimeout(step,0);
+}
+function openLayoutVariants(seed,maker,fit){
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_VARIANTS=[];LAYOUT_KEYS={};LAYOUT_ATTEMPTS=1;
+  LAYOUT_MAKER=maker;LAYOUT_FIT=fit;
+  document.getElementById("layoutSort").value="sale";
+  document.getElementById("layoutScroll").scrollTop=0;
+  document.getElementById("layoutChooser").classList.add("open");
+  addLayoutOption(seed);renderLayoutOptions();
+  document.getElementById("layoutStatus").textContent="Подбираем различные варианты при заданных ограничениях…";
+  searchLayoutOptions(60);
+}
+document.getElementById("layoutSort").onchange=renderLayoutOptions;
+document.getElementById("layoutClose").onclick=closeLayoutOptions;
+document.getElementById("layoutMore").onclick=function(){searchLayoutOptions(60);};
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.getElementById("layoutChooser").classList.contains("open"))closeLayoutOptions();});
+</script>
 </body>
 </html>
