@@ -1650,7 +1650,7 @@ function composeFloor(){
   // открытых x-рядов, как и раньше в autoFitSection) и, если extendPockets=true, того же расчётного итога
   // (openWidth) для суммарной длины каждого карманного сегмента О-типа (ближняя квартира + продолжение).
   function build(openWidth,extendPockets){
-    var localPlaced=[],uid=0;
+    var localPlaced=[],uid=0,maxFrontGap=0;
     function nu(){return ++uid;}
     var mop={uid:nu(),fid:mopF.id,kind:"mop",x:0,y:0,rot:0,mx:false,my:false};
     var segs=computeMopRowSegments(mopF);
@@ -2031,27 +2031,9 @@ function composeFloor(){
     // именно в этом шаге: x0 считался НЕЗАВИСИМО по totals[idx] каждой строки, а не по общей паре).
     // Блок "узел + ряд" центрируется целиком, а сам ряд стартует уже за узлом (если тот слева).
     // Не центрируем недобранный ряд: центрирование делило остаток на два видимых фасадных зазора.
-    // Блок начинается от левого фронта, а свободная длина ниже собирается в одном внутреннем месте.
+    // Общий левый торец остается плотным; допустимый остаток может быть только у правого торца.
     var compBlockX0=(plainIdx.length===2)?0:null;
     var pairSharedX0=(plainIdx.length===2)?(compBlockX0+compWL):null;
-    function edgePackPlainRow(sr,pr,span){
-      var slack=Math.round(span-pr.total);
-      if(slack<=1||sr.forms.length<2)return{split:-1,slack:0,extra:null};
-      // Разрыв ставим около середины ряда, но никогда не разрываем готовую пару выступ+вырез.
-      var split=-1,best=Infinity;
-      for(var k=1;k<sr.forms.length;k++){
-        if((sr.back[k]||0)>0)continue;
-        var boundary=pr.positions[k].x-pr.positions[0].x;
-        var score=Math.abs(boundary+slack/2-span/2);
-        if(score<best){best=score;split=k;}
-      }
-      if(split<0)return{split:-1,slack:0,extra:null};
-      for(var k=split;k<pr.positions.length;k++)pr.positions[k].x+=slack;
-      // После объединения двух краевых зазоров проверяем, помещается ли в остаток обычная 1С.
-      var extras=APARTMENTS.filter(function(a){return a.type==="1С"&&typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&!getPairInfo(a)&&a.w<=slack&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a);});
-      extras.sort(function(a,b){return b.area-a.area||b.w-a.w;});
-      return{split:split,slack:slack,extra:extras[0]||null};
-    }
     openSegs.forEach(function(seg,idx){
       if(seg.excl)return;
       var ci=cornerInfo[idx];
@@ -2059,14 +2041,10 @@ function composeFloor(){
       var sr=srs[idx],x0=(pairSharedX0!==null&&(idx===iA||idx===iB))?pairSharedX0:0;
       var pr=placeSideRow(sr,x0,seg.anchorY,seg.dir,rowShiftCap(seg));
       var rowSpan=(pairSharedX0!==null&&(idx===iA||idx===iB))?Math.max(0,overall-compW):overall;
-      var packed=edgePackPlainRow(sr,pr,rowSpan);
+      var gapMM=Math.max(0,Math.round(rowSpan-pr.total));
+      if(gapMM>maxFrontGap)maxFrontGap=gapMM;
       for(var i=0;i<sr.forms.length;i++){
-        if(i===packed.split&&packed.extra){
-          var prev=sr.forms[i-1],gapX=pr.positions[i-1].x+prev.w;
-          localPlaced.push({uid:nu(),fid:packed.extra.id,kind:"apt",x:gapX,y:mop.y+torecShiftedY(seg.anchorY,seg.dir,packed.extra,0,rowShiftCap(seg)),rot:0,mx:false,my:seg.dir>0,segId:seg.segId,rowAxis:"x"});
-        }
         var f=sr.forms[i],ps=pr.positions[i];var np={uid:nu(),fid:f.id,kind:"apt",x:ps.x,y:mop.y+ps.y,rot:0,mx:!!(sr.mx&&sr.mx[i]),my:seg.dir>0,segId:seg.segId,rowAxis:"x"};
-        if(i===packed.split){var freeGap=packed.slack-(packed.extra?packed.extra.w:0);if(freeGap>0)np.gapBefore=freeGap;}
         if((sr.back[i]||0)>0)np.pairedWithPrev=true;localPlaced.push(np);
       }
     });
@@ -2262,9 +2240,9 @@ function composeFloor(){
       }
       var spanX=(xMax>xMin)?(xMax-xMin):mopF.w;
       overall=spanX;
-      return{placedArr:localPlaced,totalArea:totalArea,overall:spanX,achievedTop:spanX,achievedBot:spanX,requestedWidth:openWidth,extendedPockets:extendPockets};
+      return{placedArr:localPlaced,totalArea:totalArea,overall:spanX,achievedTop:spanX,achievedBot:spanX,requestedWidth:openWidth,extendedPockets:extendPockets,frontGapMM:maxFrontGap,frontGapViolation:maxFrontGap>1000};
     }
-    return{placedArr:localPlaced,totalArea:totalArea,overall:overall,achievedTop:totals[0]||0,achievedBot:totals[1]||0,requestedWidth:openWidth,extendedPockets:extendPockets};
+    return{placedArr:localPlaced,totalArea:totalArea,overall:overall,achievedTop:totals[0]||0,achievedBot:totals[1]||0,requestedWidth:openWidth,extendedPockets:extendPockets,frontGapMM:maxFrontGap,frontGapViolation:maxFrontGap>1000};
   }
 
   var result;
@@ -4315,6 +4293,7 @@ function layoutImage(metrics){
 }
 function addLayoutOption(result){
   if(!result||!result.placedArr||!result.placedArr.length)return;
+  if(result.frontGapViolation)return;
   var stats=layoutMetrics(result);if(!stats||!stats.apartments)return;
   if(constraints.strict.area&&(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01))return;
   if(constraints.profileTypes&&constraints.profileTypes.length){
