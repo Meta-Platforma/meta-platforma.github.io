@@ -24,7 +24,7 @@ syncBlockMetrics=function(o){
  if(o&&o.metaFixed&&o.metaFloor){
   var f=o.metaFloor;
   o.saleFloor=Number(f.saleArea_m2)||0;
-  o.grossFloor=Number(f.grossArea_m2)||0;
+  o.grossFloor=Number(f.constructionArea_m2)||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0));
   o.kep=Number(f.kepPreliminary)||Number(f.kep)||(o.grossFloor>0?o.saleFloor/o.grossFloor:0);
   o.avgApt=f.apartmentsPerFloor>0?o.saleFloor/f.apartmentsPerFloor:50;
   o.label="СЕКЦИЯ · КОНФИГУРАТОР";
@@ -70,7 +70,8 @@ renderInspector=function(){
    '<div class="frow"><label>S квартир / этаж</label><b>'+r(f.saleArea_m2)+' м²</b></div>'+
    '<div class="frow"><label>Средняя площадь</label><b>'+r(f.averageApartmentArea_m2||o.avgApt)+' м²</b></div>'+
    '<div class="frow"><label>S МОП / этаж</label><b>'+r(f.mopArea_m2)+' м²</b></div>'+
-   '<div class="frow"><label>S строительная / этаж</label><b>'+r(f.grossArea_m2)+' м²</b></div>'+
+   '<div class="frow"><label>Площадь по контуру / этаж</label><b>'+r(f.grossArea_m2)+' м²</b></div>'+
+   '<div class="frow"><label>S строительная (контур − шахты)</label><b>'+r(f.constructionArea_m2||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0)))+' м²</b></div>'+
    '<div class="frow"><label>КЭП</label><b>'+r(f.kepPreliminary||f.kep)+'</b></div>'+
    '<div class="frow"><label>Этажность</label><input id="metaFixedFloors" type="number" min="1" max="100" step="1" value="'+o.floors+'"></div>'+
    '<div class="statusline"><b>На здание:</b><br>Квартир: '+r((Number(f.apartmentsPerFloor)||0)*o.floors)+'<br>S квартир: '+r((Number(f.saleArea_m2)||0)*o.floors)+' м²</div>'+
@@ -112,7 +113,7 @@ function importSection(p){
  if(contour&&contour.length<3)contour=null;
  var replaceId=String(p.replaceTargetId||""),target=replaceId?state.objects.find(function(o){return String(o.id)===replaceId;}):null;
  if(replaceId&&(!target||target.kind!=="building"))throw Error("Исходная секция не найдена в Массинге. Передача отменена, план на площадке не изменён.");
- var floorData={apartmentsPerFloor:Number(f.apartmentsPerFloor)||0,saleArea_m2:Number(f.saleArea_m2)||0,averageApartmentArea_m2:Number(f.averageApartmentArea_m2)||(Number(f.apartmentsPerFloor)>0?Number(f.saleArea_m2)/Number(f.apartmentsPerFloor):0),mopArea_m2:Number(f.mopArea_m2)||0,grossArea_m2:Number(f.grossArea_m2)||0,liftShaftArea_m2:Number(f.liftShaftArea_m2)||0,kep:Number(f.kep)||0,kepPreliminary:Number(f.kepPreliminary)||Number(f.kep)||0,mopId:String(f.mopId||""),mopType:String(f.mopType||""),mopName:String(f.mopName||""),liftCount:Number(f.liftCount)||0,sectionTypeKey:String(p.sourceSection&&p.sourceSection.sectionTypeKey||"")};
+ var floorData={apartmentsPerFloor:Number(f.apartmentsPerFloor)||0,saleArea_m2:Number(f.saleArea_m2)||0,averageApartmentArea_m2:Number(f.averageApartmentArea_m2)||(Number(f.apartmentsPerFloor)>0?Number(f.saleArea_m2)/Number(f.apartmentsPerFloor):0),mopArea_m2:Number(f.mopArea_m2)||0,grossArea_m2:Number(f.grossArea_m2)||0,constructionArea_m2:Number(f.constructionArea_m2)||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0)),liftShaftArea_m2:Number(f.liftShaftArea_m2)||0,kep:Number(f.kep)||0,kepPreliminary:Number(f.kepPreliminary)||Number(f.kep)||0,mopId:String(f.mopId||""),mopType:String(f.mopType||""),mopName:String(f.mopName||""),liftCount:Number(f.liftCount)||0,sectionTypeKey:String(p.sourceSection&&p.sourceSection.sectionTypeKey||"")};
  checkpoint();
  var obj;
  if(target){
