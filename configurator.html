@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="bingbot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
 <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-<title>Конфигуратор типового этажа v51</title>
+<title>Конфигуратор типового этажа v52</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f4f4f2;--surface:#fff;--surface-2:#fafaf8;--text:#1a1a18;--text-sec:#666;--text-muted:#999;--border:#e0e0dc;--bs:#c8c8c2;--accent:#2563eb;--c1s:#2196f3;--c1s-bg:rgba(33,150,243,0.12);--c1k:#4caf50;--c1k-bg:rgba(76,175,80,0.12);--c3s:#ff9800;--c3s-bg:rgba(255,152,0,0.12);--c4s:#f44336;--c4s-bg:rgba(244,67,54,0.12);--cmop:#78909c;--cmop-bg:rgba(120,144,156,0.15)}
@@ -194,7 +194,7 @@ html.embedded header .meta-nav{display:none}
 </head>
 <body>
 <header>
-  <h1>Конфигуратор типового этажа <span style="color:var(--text-muted);font-weight:500">v51</span></h1>
+  <h1>Конфигуратор типового этажа <span style="color:var(--text-muted);font-weight:500">v52</span></h1>
   <div class="mtabs">
     <button class="mtab active" onclick="setMode('manual')">Ручной</button>
     <button class="mtab" onclick="setMode('auto')">Авто-подбор</button>
@@ -933,6 +933,8 @@ function isPlus15Named(apt){return !!(apt&&apt.name&&NAME_PLUS15_RE.test(apt.nam
 // простого false обязательно: false означает "здесь вообще не край здания" (внутренний конец крыла у ЛЛУ,
 // зафиксированный угол Г-типа, стык кармана О-типа с ближней квартирой) — там никакого правила нет.
 var END_C3="c3";
+// END_G_CORNER — крупная каталожная квартира у внутреннего угла Г-коридора.
+var END_G_CORNER="gcorner";
 // END_TOREC_NOSHIFT — торцевая квартира на конце, который занят СЕРЕДИННЫМ модулем узла (схема C): форма
 // торца ставится как обычно, но БЕЗ сдвига внутрь этажа. Сдвиг существует ровно затем, чтобы закрыть торец
 // коридора; когда там стоит серединный модуль, сдвиг не нужен и вреден — торцевая квартира и модуль лезут в
@@ -986,6 +988,20 @@ function build3CEndUnit(remaining,maxDepth){
   pool.sort(function(a,b){return Math.abs(remaining-a.w)-Math.abs(remaining-b.w);});
   var bestDiff=Math.abs(remaining-pool[0].w);
   var tier=pool.filter(function(a){return Math.abs(remaining-a.w)<=bestDiff+1500;});
+  var f=tier[Math.floor(Math.random()*tier.length)];
+  return{forms:[f],back:[0],mx:[false],ysh:[0],w:f.w};
+}
+// Крупная угловая квартира для Г-типа: только готовые формы каталога, без растяжения.
+// 4С допускается лишь когда она разрешена для текущего МОП; текущие 4С в каталоге помечены как Н-тип.
+function buildGCornerUnit(remaining,maxDepth){
+  if(CURRENT_MOP_TYPE!=="Г")return null;
+  var pool=APARTMENTS.filter(function(a){
+    return(a.type==="3С"||a.type==="4С")&&a.area>=55&&!isTorec(a)&&!getPairInfo(a)&&!COMPOSITE_PENDING_IDS[a.id]&&
+      a.w<=remaining&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a)&&typeAllowed(a.type);
+  });
+  if(!pool.length)return null;
+  pool.sort(function(a,b){return b.area-a.area||b.w-a.w;});
+  var maxArea=pool[0].area,tier=pool.filter(function(a){return a.area>=maxArea-5;});
   var f=tier[Math.floor(Math.random()*tier.length)];
   return{forms:[f],back:[0],mx:[false],ysh:[0],w:f.w};
 }
@@ -1181,11 +1197,13 @@ function buildSideRowWithTorec(targetWidth,maxDepth,leftEnd,rightEnd){
   function noShift(u){if(u&&u.ysh)for(var i=0;i<u.ysh.length;i++)u.ysh[i]=0;return u;}
   if(leftEnd===END_COMPO_PAIR){leftUnit=buildCompoPairUnit(remaining,maxDepth,false);if(leftUnit)remaining-=leftUnit.w;}
   else if(leftEnd===END_C3){leftUnit=build3CEndUnit(remaining,maxDepth);if(leftUnit)remaining-=leftUnit.w;}
+  else if(leftEnd===END_G_CORNER){leftUnit=buildGCornerUnit(remaining,maxDepth);if(leftUnit)remaining-=leftUnit.w;}
   else if(leftEnd){leftUnit=buildEndUnit(remaining,maxDepth,false,leftEnd===END_TOREC_NOSHIFT?COMPO_C_TOREC_TYPES:null);if(leftEnd===END_TOREC_NOSHIFT)noShift(leftUnit);if(leftUnit)remaining-=leftUnit.w;}
   // На правом конце партнёр ставится последним в ряду без back; требуемый нахлёст создаётся
   // сдвигом самого составного узла влево на 2.3 м. Так остальные квартиры ряда не уезжают.
   if(rightEnd===END_COMPO_PAIR){rightUnit=buildCompoPairUnit(remaining,maxDepth,true);if(rightUnit)remaining-=rightUnit.w;}
   else if(rightEnd===END_C3){rightUnit=build3CEndUnit(remaining,maxDepth);if(rightUnit)remaining-=rightUnit.w;}
+  else if(rightEnd===END_G_CORNER){rightUnit=buildGCornerUnit(remaining,maxDepth);if(rightUnit)remaining-=rightUnit.w;}
   else if(rightEnd){rightUnit=buildEndUnit(remaining,maxDepth,true,rightEnd===END_TOREC_NOSHIFT?COMPO_C_TOREC_TYPES:null);if(rightEnd===END_TOREC_NOSHIFT)noShift(rightUnit);if(rightUnit)remaining-=rightUnit.w;}
   var seed=[];
   if(leftUnit&&leftUnit.forms)seed=seed.concat(leftUnit.forms);
@@ -1664,6 +1682,8 @@ function composeFloor(){
   if(!mopF){alert("Выберите МОП");return;}
   // Спецформы торца Н-типа (H_TYPE_ONLY_IDS) допустимы только когда CURRENT_MOP_TYPE==="Н" — см. mopTypeOk().
   CURRENT_MOP_TYPE=mopF.mopType;
+  var isGType=mopF.mopType==="Г";
+  var G_ARM_MAX_MM=30000;
   var maxDepth=null;
   // Отмеченные типы квартир являются обязательным фильтром состава; пустой список допускает все типы.
   // Проценты слайдеров задают доли среди допущенных типов.
@@ -1693,7 +1713,76 @@ function composeFloor(){
     var segs=computeMopRowSegments(mopF);
     var openSegs=segs.filter(function(s){return !s.fixed&&(s.axis||"x")==="x";});
     var fixedSegs=segs.filter(function(s){return s.fixed&&(s.axis||"x")==="x";});
-    var ySegs=segs.filter(function(s){return s.axis==="y";});
+        var ySegs=segs.filter(function(s){return s.axis==="y";});
+    // Для Г-типа группируем обе стороны одного и того же плеча по общему наружному торцу.
+    // Внутренние границы (у ЛЛУ) остаются на месте; наружный край ряда ограничивается 30 м от общего корня.
+    function makeGArmProfiles(list,axis){
+      var groups={},bySeg={};
+      if(!isGType)return bySeg;
+      var loKey=axis==="x"?"x0":"y0",hiKey=axis==="x"?"x1":"y1";
+      list.forEach(function(seg){
+        if(seg.fixed||seg.sMin===undefined&&seg.sMax===undefined)return;
+        var side=seg.sMin&&!seg.sMax?-1:(!seg.sMin&&seg.sMax?1:0);
+        if(!side)return;
+        var lo=seg[loKey],hi=seg[hiKey],outer=side<0?lo:hi,inner=side<0?hi:lo;
+        var key=side+":"+Math.round(outer/100),g=groups[key];
+        if(!g)g=groups[key]={side:side,outer:outer,innerMost:inner,items:[]};
+        if(side<0)g.innerMost=Math.max(g.innerMost,inner);else g.innerMost=Math.min(g.innerMost,inner);
+        g.items.push({seg:seg,inner:inner});
+      });
+      Object.keys(groups).forEach(function(key){
+        var g=groups[key];
+        g.items.forEach(function(item){
+          bySeg[item.seg.segId]={axis:axis,side:g.side,root:g.innerMost,inner:item.inner,outer:g.outer,segId:item.seg.segId};
+        });
+      });
+      return bySeg;
+    }
+    var gArmX=makeGArmProfiles(openSegs,"x"),gArmY=makeGArmProfiles(ySegs,"y");
+    function gArmProfile(seg,axis){return(axis==="y"?gArmY:gArmX)[seg.segId]||null;}
+    function gArmTarget(seg,requested,axis,innerOverride){
+      var p=gArmProfile(seg,axis);
+      if(!p)return Math.max(0,Math.min(G_ARM_MAX_MM,requested));
+      var inner=innerOverride===undefined?p.inner:innerOverride;
+      var cap=p.root+p.side*G_ARM_MAX_MM;
+      var available=p.side<0?inner-cap:cap-inner;
+      return Math.max(0,Math.min(G_ARM_MAX_MM,requested,available));
+    }
+    function gRowSpan(row){
+      var span=0;
+      for(var i=0;i<row.forms.length;i++)span+=row.forms[i].w-(row.back[i]||0);
+      return Math.max(0,span);
+    }
+    function buildGArmRow(seg,requested,depth,leftEnd,rightEnd,axis,innerOverride){
+      // В текущих Г-раскладках парные формы +/− дают пересечение фактических контуров при обоих
+      // направлениях рядов. Для Г-типа используем обычные каталожные формы и одиночные торцы.
+      var savedApts=null;
+      if(isGType){
+        savedApts=APARTMENTS;
+        APARTMENTS=savedApts.filter(function(a){return !getPairInfo(a)&&!COMPOSITE_PENDING_IDS[a.id];});
+        PAIR_UNITS=null;
+      }
+      try{
+        var limit=gArmTarget(seg,requested,axis,innerOverride),target=limit,best=null,bestSpan=-1;
+        for(var attempt=0;attempt<16;attempt++){
+          var row=buildSideRowWithTorec(target,depth,leftEnd,rightEnd),span=gRowSpan(row);
+          if(span<=limit+1&&span>bestSpan){best=row;bestSpan=span;}
+          if(span<=limit+1)break;
+          target=Math.max(0,target-(span-limit)-200);
+        }
+        if(best)return best;
+        // Каталожная форма не помещается в остаток плеча — оставляем его свободным, не выходим за лимит.
+        return{forms:[],back:[],mx:[],ysh:[]};
+      }finally{
+        if(savedApts){APARTMENTS=savedApts;PAIR_UNITS=null;}
+      }
+    }
+    var gCornerSegId=null;
+    if(isGType){
+      var cornerRows=openSegs.filter(function(seg){var p=gArmProfile(seg,"x");return p&&Math.abs(p.inner-p.root)<=100;});
+      cornerRows.sort(function(a,b){return(a.dir<0?0:1)-(b.dir<0?0:1);});
+      if(cornerRows.length)gCornerSegId=cornerRows[0].segId;
+    }
     // "Угол": конец x-сегмента, совпадающий с anchorX какого-либо y-сегмента (вертикального плеча,
     // напр. Г-тип) — это НАСТОЯЩИЙ фиксированный стык коридоров, а не торец здания. Такой конец никогда
     // не растягивается и не получает торцевую квартиру (см. фикс "фиксированный угол Г-типа" ранее в
@@ -1757,6 +1846,17 @@ function composeFloor(){
         var o=allXSegs[i];
         if(o===seg||o.dir===seg.dir)continue;
         var gap=seg.dir<0?(o.anchorY-seg.anchorY):(seg.anchorY-o.anchorY);
+        if(gap>0&&gap<cap)cap=gap;
+      }
+      return cap;
+    }
+    var allYSegs=segs.filter(function(s){return s.axis==="y";});
+    function yRowShiftCap(seg){
+      var cap=Infinity;
+      for(var i=0;i<allYSegs.length;i++){
+        var o=allYSegs[i];
+        if(o===seg||o.dir===seg.dir)continue;
+        var gap=seg.dir<0?(o.anchorX-seg.anchorX):(seg.anchorX-o.anchorX);
         if(gap>0&&gap<cap)cap=gap;
       }
       return cap;
@@ -1982,10 +2082,16 @@ function composeFloor(){
       // сразу и, сдвигаясь навстречу на 1.5 м, съедали коридор целиком и накладывались друг на друга.
       var leftFlag=ci.start?false:endFlag(seg.dir,true,true);
       var rightFlag=ci.end?false:endFlag(seg.dir,false,true);
+      var gProfileX=isGType?gArmProfile(seg,"x"):null;
+      if(isGType&&seg.segId===gCornerSegId&&gProfileX){
+        if(gProfileX.side<0)rightFlag=END_G_CORNER;else leftFlag=END_G_CORNER;
+      }
       setDepthForDir(seg.dir);
-      var rb=buildSideRowWithTorec(openWidth,maxDepth,leftFlag,rightFlag);
-      var rowTotal=0;for(var i=0;i<rb.forms.length;i++)rowTotal+=rb.forms[i].w-(rb.back[i]||0);
-      var startAbs=ci.start?(mop.x+seg.x0):(ci.end?(mop.x+seg.x1-rowTotal):(mop.x+seg.x0));
+      var xTarget=isGType?gArmTarget(seg,openWidth,"x"):openWidth;
+      var rb=isGType?buildGArmRow(seg,xTarget,maxDepth,leftFlag,rightFlag,"x"):buildSideRowWithTorec(openWidth,maxDepth,leftFlag,rightFlag);
+      var rowTotal=gRowSpan(rb);
+      var startAbs=gProfileX?(gProfileX.side<0?(mop.x+gProfileX.inner-rowTotal):(mop.x+gProfileX.inner))
+        :(ci.start?(mop.x+seg.x0):(ci.end?(mop.x+seg.x1-rowTotal):(mop.x+seg.x0)));
       var x=startAbs;
       for(var i=0;i<rb.forms.length;i++){
         var f=rb.forms[i],bk=rb.back[i]||0;
@@ -2235,6 +2341,26 @@ function composeFloor(){
         }
       }
     });
+    function gVerticalStartAfterX(seg,profile){
+      if(!isGType||!profile)return seg.y0;
+      var maxDepth=0;
+      for(var ai=0;ai<APARTMENTS.length;ai++)if(APARTMENTS[ai].d>maxDepth)maxDepth=APARTMENTS[ai].d;
+      var x0=seg.dir<0?seg.anchorX-maxDepth:seg.anchorX;
+      var x1=seg.dir<0?seg.anchorX:seg.anchorX+maxDepth;
+      var blocked=[];
+      for(var pi=0;pi<localPlaced.length;pi++){
+        var p=localPlaced[pi];if(p.kind!=="apt"||p.rowAxis!=="x")continue;
+        var f=fA(p.fid);if(!f||!f.pts)continue;
+        var pts=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my);
+        var minx=Infinity,maxx=-Infinity,miny=Infinity,maxy=-Infinity;
+        for(var qi=0;qi<pts.length;qi++){var qx=pts[qi][0]+p.x,qy=pts[qi][1]+p.y;minx=Math.min(minx,qx);maxx=Math.max(maxx,qx);miny=Math.min(miny,qy);maxy=Math.max(maxy,qy);}
+        if(maxx>x0+1&&minx<x1-1&&maxy>seg.y0+1)blocked.push([miny,maxy]);
+      }
+      blocked.sort(function(a,b){return a[0]-b[0]||a[1]-b[1];});
+      var start=seg.y0,changed=true;
+      while(changed){changed=false;for(var bi=0;bi<blocked.length;bi++)if(blocked[bi][0]<=start+1&&blocked[bi][1]>start+1){start=blocked[bi][1];changed=true;}}
+      return start;
+    }
     ySegs.forEach(function(seg){
       // Вертикальное плечо (Г-тип) не относится однозначно ни к "1 стороне", ни ко "2 стороне" (те заданы
       // для горизонтальных x-рядов) — фильтр глубины на него сознательно не распространяется (без ограничения).
@@ -2254,12 +2380,18 @@ function composeFloor(){
         // buildSideRow() безусловно ставил торцевые блоки на ОБА конца короткого плеча и часто оставлял его пустым.
         var yStartEnd=seg.sMin?endFlag(seg.dir,true,true):false;
         var yFinishEnd=seg.sMax?endFlag(seg.dir,false,true):false;
-        var srY=buildSideRowWithTorec(segLen,segDepthLimit(seg,maxDepth),yStartEnd,yFinishEnd);
-        var y2=absY0;
+        var gProfileY=isGType?gArmProfile(seg,"y"):null;
+        var yInner=isGType?gVerticalStartAfterX(seg,gProfileY):seg.y0;
+        var yTarget=isGType?gArmTarget(seg,openWidth,"y",yInner):segLen;
+        var yDepth=isGType?null:segDepthLimit(seg,maxDepth);
+        var srY=isGType?buildGArmRow(seg,yTarget,yDepth,yStartEnd,yFinishEnd,"y",yInner):buildSideRowWithTorec(segLen,yDepth,yStartEnd,yFinishEnd);
+        var ySpan=gRowSpan(srY);
+        var y2=gProfileY?(gProfileY.side<0?(mop.y+yInner-ySpan):(mop.y+yInner)):absY0;
         for(var i=0;i<srY.forms.length;i++){
           var fY2=srY.forms[i],bkY=srY.back[i]||0;
           y2-=bkY;
           var shiftY=(srY.ysh&&srY.ysh[i])||0;
+          if(isGType){var capShiftY=yRowShiftCap(seg);if(shiftY>capShiftY)shiftY=capShiftY;}
           var xY=mop.x+(seg.dir<0?(seg.anchorX-fY2.d+shiftY):(seg.anchorX-shiftY));
           var npY={uid:nu(),fid:fY2.id,kind:"apt",x:xY,y:y2,rot:seg.dir<0?3:1,mx:!!(srY.mx&&srY.mx[i]),my:false,segId:seg.segId,rowAxis:"y"};
           if(bkY>0)npY.pairedWithPrev=true;
