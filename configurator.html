@@ -589,7 +589,7 @@ function oTypeFormFor(dir,leftSide){
   var want=(dir<0?"b":"t")+(leftSide?"l":"r");
   for(var i=0;i<APARTMENTS.length;i++){
     var a=APARTMENTS[i];
-    if(isOType(a)&&a.ocor===want)return a;
+    if(isOType(a)&&a.ocor===want&&typeAllowed(a.type))return a;
   }
   return null;
 }
@@ -1570,8 +1570,8 @@ function autoFitSection(targetWidth,mopId,maxDepth,sectionLabel,defFloors){
   // кармана не нашлось — как раньше, любая самая широкая подходящая форма (без выреза).
   fixedSegs.forEach(function(seg){
     var absX0=mop.x+seg.x0,absX1=mop.x+seg.x1,slotW=absX1-absX0;
-    var cutCandidates=APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&(a.p27m||a.p23m)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
-    var candidates=cutCandidates.length?cutCandidates:APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
+    var cutCandidates=APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&(a.p27m||a.p23m)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
+    var candidates=cutCandidates.length?cutCandidates:APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
     if(!candidates.length)return;
     candidates.sort(function(a,b){return b.w-a.w||b.area-a.area;});
     var f=candidates[0];
@@ -1586,7 +1586,7 @@ function autoFitSection(targetWidth,mopId,maxDepth,sectionLabel,defFloors){
     var absY0=mop.y+seg.y0,absY1=mop.y+seg.y1,segLen=absY1-absY0;
     if(seg.fixed){
       var mdY=segDepthLimit(seg,maxDepth);
-      var candidatesY=APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&a.w<=segLen&&(!mdY||a.d<=mdY);});
+      var candidatesY=APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&a.w<=segLen&&(!mdY||a.d<=mdY);});
       if(!candidatesY.length)return;
       candidatesY.sort(function(a,b){return b.w-a.w||b.area-a.area;});
       var fY=candidatesY[0];
@@ -1629,16 +1629,13 @@ function composeFloor(){
   // Спецформы торца Н-типа (H_TYPE_ONLY_IDS) допустимы только когда CURRENT_MOP_TYPE==="Н" — см. mopTypeOk().
   CURRENT_MOP_TYPE=mopF.mopType;
   var maxDepth=constraints.strict.depth?Math.round((constraints.maxDepthM||8)*1000):null;
-  // ACTIVE_TYPES/PROFILE_ACTIVE теперь управляются галочками у слайдеров профиля (constraints.profileTypes,
-  // не более 3), а не отдельным чекбоксом "Доли квартир" (убран из UI по просьбе пользователя). Пусто —
-  // как и раньше при снятой галочке: все 4 типа, равновероятно, доли не учитываются.
-  // Галочки у типов убраны по просьбе пользователя: бегунки теперь ВСЕГДА задают предпочтительную
-  // комбинацию, а не включают/выключают типы. Значит ограничения состава нет (ACTIVE_TYPES=null), а доли
-  // учитываются всегда (PROFILE_ACTIVE=true) — раньше без галочек они игнорировались вовсе.
-  ACTIVE_TYPES=null;
+  // Отмеченные типы квартир являются обязательным фильтром состава; пустой список допускает все типы.
+  // Проценты слайдеров задают доли среди допущенных типов.
+  var selectedTypes=(constraints.profileTypes&&constraints.profileTypes.length)?constraints.profileTypes.slice():null;
+  ACTIVE_TYPES=selectedTypes?selectedTypes.slice():null;
   PROFILE_ACTIVE=true;
   var lengthMode=!!constraints.strict.length;
-  var areaMode=!!constraints.strict.area&&!lengthMode; // при одновременной "длина"+"площадь" длина главнее, площадь — только замер факта
+  var areaMode=!!constraints.strict.area&&!lengthMode; // При строгом лимите длины строим на его границе; диапазон площади всё равно фильтрует варианты
   var lluBB=mopLluBBox(mopF);
   // depthSetTop/Bot (мм): галочки "Глубина квартир в ядре", раздельно по сторонам ("1 сторона"=верх=dir<0,
   // "2 сторона"=низ=dir>0). Пусто = без ограничения на этой стороне. setDepthForDir() переустанавливает
@@ -2051,7 +2048,7 @@ function composeFloor(){
       if(split<0)return{split:-1,slack:0,extra:null};
       for(var k=split;k<pr.positions.length;k++)pr.positions[k].x+=slack;
       // После объединения двух краевых зазоров проверяем, помещается ли в остаток обычная 1С.
-      var extras=APARTMENTS.filter(function(a){return a.type==="1С"&&!isTorec(a)&&!isOType(a)&&!getPairInfo(a)&&a.w<=slack&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a);});
+      var extras=APARTMENTS.filter(function(a){return a.type==="1С"&&typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&!getPairInfo(a)&&a.w<=slack&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a);});
       extras.sort(function(a,b){return b.area-a.area||b.w-a.w;});
       return{split:split,slack:slack,extra:extras[0]||null};
     }
@@ -2167,8 +2164,8 @@ function composeFloor(){
         fy=mop.y+(seg.dir<0?lluBB.miny:lluBB.maxy)-f.oay;
       } else {
         // Резерв на случай МОП без ЛЛУ/без форм О-типа — прежнее поведение (широкая форма с вырезом встык).
-        var cutCandidates=APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&(a.p27m||a.p23m)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
-        var candidates=cutCandidates.length?cutCandidates:APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
+        var cutCandidates=APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&(a.p27m||a.p23m)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
+        var candidates=cutCandidates.length?cutCandidates:APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&a.w<=slotW&&(!maxDepth||a.d<=maxDepth);});
         if(!candidates.length)return;
         candidates.sort(function(a,b){return b.w-a.w||b.area-a.area;});
         f=candidates[0];
@@ -2230,7 +2227,7 @@ function composeFloor(){
       var absY0=mop.y+seg.y0,absY1=mop.y+seg.y1,segLen=absY1-absY0;
       if(seg.fixed){
         var mdY=segDepthLimit(seg,maxDepth);
-        var candidatesY=APARTMENTS.filter(function(a){return !isTorec(a)&&!isOType(a)&&a.w<=segLen&&(!mdY||a.d<=mdY);});
+        var candidatesY=APARTMENTS.filter(function(a){return typeAllowed(a.type)&&!isTorec(a)&&!isOType(a)&&a.w<=segLen&&(!mdY||a.d<=mdY);});
         if(!candidatesY.length)return;
         candidatesY.sort(function(a,b){return b.w-a.w||b.area-a.area;});
         var fY=candidatesY[0];
@@ -2274,55 +2271,54 @@ function composeFloor(){
   if(lengthMode){
     result=build(Math.round(constraints.floorLen*1000),true);
   } else if(areaMode){
-    // Поиск по растущей длине ряда: без обязательной длины единственный способ подогнать площадь под
-    // диапазон — растягивать ряды (и продолжения карманов О-типа) до тех пор, пока сумма площадей не
-    // попадёт в [areaMin,areaMax], не превышая физический потолок растяжения корridora (30 м, см. v19).
     function inRange(a){return a>=constraints.areaMin&&a<=constraints.areaMax;}
     function distToRange(a){if(a<constraints.areaMin)return constraints.areaMin-a;if(a>constraints.areaMax)return a-constraints.areaMax;return 0;}
-    // Верхняя граница поиска для площадного режима — НЕ MOP_MAX_CORRIDOR_LEN (тот лимит — для ручного
-    // растягивания корридора мышью, ~30 м, слишком мал: заданный диапазон площади может требовать этажа
-    // длиннее). Берём щедрый потолок в 200 м, а рост ряда останавливаем раньше по факту (см. stallCount ниже).
     var AREA_SEARCH_MAX_LEN=200000;
-    var best=build(mopF.w,false),lastTw=mopF.w,stallCount=0,prevArea=best.totalArea;
-    if(!inRange(best.totalArea)){
-      for(var tw=mopF.w+1000;tw<=AREA_SEARCH_MAX_LEN;tw+=1000){
-        lastTw=tw;
-        var r=build(tw,true);
-        if(distToRange(r.totalArea)<distToRange(best.totalArea))best=r;
-        if(inRange(r.totalArea))break;
-        if(r.totalArea>constraints.areaMax)break; // дальше расти некуда — только уточняем мельче внутри уже пройденного шага
-        stallCount=(r.totalArea<=prevArea)?stallCount+1:0;
-        prevArea=r.totalArea;
-        if(stallCount>=10)break; // рост уже 10 шагов подряд не увеличивает площадь — физический потолок каталога/глубины достигнут
-      }
-      // Случайность выбора квартир в build() means один и тот же tw может дать разный итог — несколько
-      // повторов вокруг найденной границы шага, плюс более мелкий шаг длины, чтобы вернее попасть в диапазон.
-      if(!inRange(best.totalArea)){
-        for(var tw2=Math.max(mopF.w,lastTw-1000);tw2<=lastTw;tw2+=100){
-          for(var retry=0;retry<3;retry++){
-            var r2=build(tw2,true);
-            if(distToRange(r2.totalArea)<distToRange(best.totalArea))best=r2;
-            if(inRange(best.totalArea))break;
-          }
-          if(inRange(best.totalArea))break;
-        }
-      }
+    var best=build(mopF.w,false),bestInRange=inRange(best.totalArea)?best:null,lastTw=mopF.w,stallCount=0,prevArea=best.totalArea,upperTw=null;
+    function rememberAreaCandidate(r){
+      if(!r)return;
+      if(distToRange(r.totalArea)<distToRange(best.totalArea))best=r;
+      if(inRange(r.totalArea)&&(!bestInRange||r.totalArea>bestInRange.totalArea))bestInRange=r;
     }
-    result=best;
+    // At the natural width, try several mixes if the first layout is already too large.
+    if(best.totalArea>constraints.areaMax){
+      for(var initialRetry=0;initialRetry<12&&!bestInRange;initialRetry++)rememberAreaCandidate(build(mopF.w,false));
+    }
+    // Continue after first entering the band; the old loop stopped at the minimum edge and only sampled nearby.
+    for(var tw=mopF.w+1000;tw<=AREA_SEARCH_MAX_LEN;tw+=1000){
+      lastTw=tw;
+      var bestAtWidth=-Infinity;
+      for(var widthRetry=0;widthRetry<2;widthRetry++){
+        var r=build(tw,true);
+        rememberAreaCandidate(r);
+        bestAtWidth=Math.max(bestAtWidth,r.totalArea);
+        if(r.totalArea>constraints.areaMax){upperTw=tw;break;}
+      }
+      if(upperTw)break;
+      stallCount=(bestAtWidth<=prevArea)?stallCount+1:0;
+      prevArea=bestAtWidth;
+      if(stallCount>=10)break;
+    }
+    // Refine the last 1 m before the upper-bound crossing and keep the largest in-range result.
+    var refineHi=upperTw||lastTw,refineLo=Math.max(mopF.w,refineHi-1000);
+    for(var tw2=refineLo;tw2<=refineHi;tw2+=100){
+      for(var retry=0;retry<3;retry++)rememberAreaCandidate(build(tw2,true));
+    }
+    result=bestInRange||best;
   } else {
     result=build(mopF.w,false);
   }
 
-  // Автоподбор теперь предварительный: варианты собираются, не меняя рабочее поле.
+  // Collect preview candidates without changing the working floor.
   var seedLength=result.requestedWidth||mopF.w,seedExtended=!!result.extendedPockets;
   var generation=0;
+  var areaOffsets=[0,-500,500,-1000,1000,-1500,1500,-2500,2500,-4000,4000,-6000,6000];
   var maker=function(){
-    CURRENT_MOP_TYPE=mopF.mopType;ACTIVE_TYPES=null;PROFILE_ACTIVE=true;CURRENT_DEPTH_SET=null;
+    CURRENT_MOP_TYPE=mopF.mopType;ACTIVE_TYPES=selectedTypes?selectedTypes.slice():null;PROFILE_ACTIVE=true;CURRENT_DEPTH_SET=null;
     try{
       generation++;
       var target=seedLength;
-      // В режиме площади изучаем также соседние длины, иначе попадаем лишь в одну локальную комбинацию.
-      if(areaMode&&generation%4===0){target=Math.max(mopF.w,seedLength+(Math.floor((generation%13)/2)-3)*100);}
+      if(areaMode)target=Math.max(mopF.w,seedLength+areaOffsets[(generation-1)%areaOffsets.length]);
       return build(target,seedExtended);
     }finally{ACTIVE_TYPES=null;CURRENT_DEPTH_SET=null;PROFILE_ACTIVE=false;CURRENT_MOP_TYPE=null;}
   };
@@ -4293,6 +4289,12 @@ function addLayoutOption(result){
   if(!result||!result.placedArr||!result.placedArr.length)return;
   var stats=layoutMetrics(result);if(!stats||!stats.apartments)return;
   if(constraints.strict.area&&(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01))return;
+  if(constraints.profileTypes&&constraints.profileTypes.length){
+    for(var i=0;i<result.placedArr.length;i++){
+      var p=result.placedArr[i],f=fF(p);
+      if(p.kind==="apt"&&f&&constraints.profileTypes.indexOf(f.type)<0)return;
+    }
+  }
   var key=result.placedArr.map(function(p){return [p.kind,p.fid,Math.round(p.x/10),Math.round(p.y/10),p.rot||0,p.mx?1:0,p.my?1:0].join(":");}).sort().join("|");
   if(LAYOUT_KEYS[key])return;
   LAYOUT_KEYS[key]=true;
