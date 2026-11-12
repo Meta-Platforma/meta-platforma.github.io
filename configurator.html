@@ -1635,7 +1635,7 @@ function composeFloor(){
   ACTIVE_TYPES=selectedTypes?selectedTypes.slice():null;
   PROFILE_ACTIVE=true;
   var lengthMode=!!constraints.strict.length;
-  var areaMode=!!constraints.strict.area&&!lengthMode; // при одновременной "длина"+"площадь" длина главнее, площадь — только замер факта
+  var areaMode=!!constraints.strict.area&&!lengthMode; // При строгом лимите длины строим на его границе; диапазон площади всё равно фильтрует варианты
   var lluBB=mopLluBBox(mopF);
   // depthSetTop/Bot (мм): галочки "Глубина квартир в ядре", раздельно по сторонам ("1 сторона"=верх=dir<0,
   // "2 сторона"=низ=dir>0). Пусто = без ограничения на этой стороне. setDepthForDir() переустанавливает
