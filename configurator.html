@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="bingbot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
 <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-<title>Конфигуратор типового этажа v49</title>
+<title>Конфигуратор типового этажа v50</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f4f4f2;--surface:#fff;--surface-2:#fafaf8;--text:#1a1a18;--text-sec:#666;--text-muted:#999;--border:#e0e0dc;--bs:#c8c8c2;--accent:#2563eb;--c1s:#2196f3;--c1s-bg:rgba(33,150,243,0.12);--c1k:#4caf50;--c1k-bg:rgba(76,175,80,0.12);--c3s:#ff9800;--c3s-bg:rgba(255,152,0,0.12);--c4s:#f44336;--c4s-bg:rgba(244,67,54,0.12);--cmop:#78909c;--cmop-bg:rgba(120,144,156,0.15)}
@@ -395,7 +395,7 @@ var profile={"1С":25,"1К/2С":35,"3С":30,"4С":10};
 var areaRanges={"1С":[19,29],"1К/2С":[31,41],"3С":[42,74],"4С":[72,85]};
 function getAreaRange(t){return areaRanges[t]||[20,90];}
 function setAreaRange(t,mn,mx){if(!areaRanges[t])areaRanges[t]=[20,90];if(mn!==null)areaRanges[t][0]=parseInt(mn);if(mx!==null)areaRanges[t][1]=parseInt(mx);}
-var constraints={aptCount:14,areaMin:550,areaMax:700,floorLen:56,floorWid:17,mopType:"",mopId:"",strict:{length:false,width:false,area:false,mopType:false,profile:false},
+var constraints={aptCount:14,areaMin:550,areaMax:700,floorLen:50,floorWid:17,mopType:"",mopId:"",strict:{length:false,width:false,mopType:false,profile:false},
   // profileTypes — галочки у слайдеров "Квартирный профиль (%)" (заменили собой единый чекбокс "Доли
   // квартир"): какие типы вообще допустимы к подбору + их доли используются как веса. Пусто = без
   // ограничения (все 4 типа, равновероятно, ровно как было при снятой галочке "Доли квартир" раньше).
@@ -1635,7 +1635,8 @@ function composeFloor(){
   ACTIVE_TYPES=selectedTypes?selectedTypes.slice():null;
   PROFILE_ACTIVE=true;
   var lengthMode=!!constraints.strict.length;
-  var areaMode=!!constraints.strict.area&&!lengthMode; // При строгом лимите длины строим на его границе; диапазон площади всё равно фильтрует варианты
+  var areaMode=true; // Диапазон площади обязателен при любом режиме подбора.
+  var areaSearchMaxWidth=lengthMode?Math.max(mopF.w,Math.round(Number(constraints.floorLen)*1000)):200000;
   var lluBB=mopLluBBox(mopF);
   // depthSetTop/Bot (мм): галочки "Глубина квартир в ядре", раздельно по сторонам ("1 сторона"=верх=dir<0,
   // "2 сторона"=низ=dir>0). Пусто = без ограничения на этой стороне. setDepthForDir() переустанавливает
@@ -2212,12 +2213,19 @@ function composeFloor(){
         var y=absY0+(segLen-fY.w)/2;
         localPlaced.push({uid:nu(),fid:fY.id,kind:"apt",x:mop.x+(seg.dir<0?(seg.anchorX-fY.d):seg.anchorX),y:y,rot:seg.dir<0?3:1,mx:false,my:false,segId:seg.segId,rowAxis:"y"});
       }else{
-        var srY=buildSideRow(segLen,segDepthLimit(seg,maxDepth),null);
+        // Вертикальное плечо Г-типа строим ряд с учётом окрашенных торцов: на внутреннем углу торец не нужен,
+        // внешний конец получает одну торцевую форму, противоположная сторона — обычную 3С.
+        // buildSideRow() безусловно ставил торцевые блоки на ОБА конца короткого плеча и часто оставлял его пустым.
+        var yStartEnd=seg.sMin?endFlag(seg.dir,true,true):false;
+        var yFinishEnd=seg.sMax?endFlag(seg.dir,false,true):false;
+        var srY=buildSideRowWithTorec(segLen,segDepthLimit(seg,maxDepth),yStartEnd,yFinishEnd);
         var y2=absY0;
         for(var i=0;i<srY.forms.length;i++){
           var fY2=srY.forms[i],bkY=srY.back[i]||0;
           y2-=bkY;
-          var npY={uid:nu(),fid:fY2.id,kind:"apt",x:mop.x+(seg.dir<0?(seg.anchorX-fY2.d):seg.anchorX),y:y2,rot:seg.dir<0?3:1,mx:false,my:false,segId:seg.segId,rowAxis:"y"};
+          var shiftY=(srY.ysh&&srY.ysh[i])||0;
+          var xY=mop.x+(seg.dir<0?(seg.anchorX-fY2.d+shiftY):(seg.anchorX-shiftY));
+          var npY={uid:nu(),fid:fY2.id,kind:"apt",x:xY,y:y2,rot:seg.dir<0?3:1,mx:!!(srY.mx&&srY.mx[i]),my:false,segId:seg.segId,rowAxis:"y"};
           if(bkY>0)npY.pairedWithPrev=true;
           localPlaced.push(npY);
           y2+=fY2.w;
@@ -2246,12 +2254,10 @@ function composeFloor(){
   }
 
   var result;
-  if(lengthMode){
-    result=build(Math.round(constraints.floorLen*1000),true);
-  } else if(areaMode){
+  if(areaMode){
     function inRange(a){return a>=constraints.areaMin&&a<=constraints.areaMax;}
     function distToRange(a){if(a<constraints.areaMin)return constraints.areaMin-a;if(a>constraints.areaMax)return a-constraints.areaMax;return 0;}
-    var AREA_SEARCH_MAX_LEN=200000;
+    var AREA_SEARCH_MAX_LEN=areaSearchMaxWidth;
     var best=build(mopF.w,false),bestInRange=inRange(best.totalArea)?best:null,lastTw=mopF.w,stallCount=0,prevArea=best.totalArea,upperTw=null;
     function rememberAreaCandidate(r){
       if(!r)return;
@@ -2296,7 +2302,7 @@ function composeFloor(){
     try{
       generation++;
       var target=seedLength;
-      if(areaMode)target=Math.max(mopF.w,seedLength+areaOffsets[(generation-1)%areaOffsets.length]);
+      if(areaMode)target=Math.min(areaSearchMaxWidth,Math.max(mopF.w,seedLength+areaOffsets[(generation-1)%areaOffsets.length]));
       return build(target,seedExtended);
     }finally{ACTIVE_TYPES=null;CURRENT_DEPTH_SET=null;PROFILE_ACTIVE=false;CURRENT_MOP_TYPE=null;}
   };
@@ -3826,8 +3832,8 @@ function showAutoPanel(){
   });
   h+='</div><div class="divider"></div>';
   h+='<div class="pr"><div class="pk">Компоновка этажа</div>';
-  h+='<div style="font-size:9px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Галочка = обязательное условие. Без галочки параметр полностью игнорируется движком (не используется даже как ориентир).</div>';
-  h+='<div class="constr-row"><input type="checkbox" id="strict-area" style="margin-right:4px" '+(constraints.strict.area?"checked":"")+' onchange="toggleStrict(\'area\',this.checked)"><label>S от:</label><input type="number" id="area-min" min="100" max="5000" value="'+constraints.areaMin+'" step="10" onchange="saveConstraint(\'areaMin\',this.value)"> \u2014 <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><label>до:</label><input type="number" id="area-max" min="100" max="5000" value='+"'"+constraints.areaMax+"'"+' step="10" onchange="saveConstraint(\'areaMax\',this.value)"> м\u00b2</span></div>';
+  h+='<div style="font-size:9px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Диапазон площади действует всегда. Галочки у других параметров включают обязательные ограничения.</div>';
+  h+='<div class="constr-row"><label>S от:</label><input type="number" id="area-min" min="100" max="5000" value="'+constraints.areaMin+'" step="10" onchange="saveConstraint(\'areaMin\',this.value)"> \u2014 <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><label>до:</label><input type="number" id="area-max" min="100" max="5000" value='+"'"+constraints.areaMax+"'"+' step="10" onchange="saveConstraint(\'areaMax\',this.value)"> м\u00b2</span></div>';
   h+='<div class="constr-row"><input type="checkbox" id="strict-length" style="margin-right:4px" '+(constraints.strict.length?"checked":"")+' onchange="toggleStrict(\'length\',this.checked)"><label>Макс. длина здания:</label><input type="number" id="floor-len" min="10" max="200" value="'+constraints.floorLen+'" onchange="saveConstraint(\'floorLen\',this.value)"> м</div>';
   h+='<div class="constr-row"><input type="checkbox" id="strict-mopType" style="margin-right:4px" '+(constraints.strict.mopType?"checked":"")+' onchange="toggleStrict(\'mopType\',this.checked);filterCfMop()"><label>Тип МОП:</label><select id="mop-type-req" style="flex:1;padding:2px 4px;border:1px solid var(--bs);border-radius:4px" onchange="saveMopTypeConstraint(this.value);filterCfMop()"><option value=""'+(constraints.mopType===""?" selected":"")+'>\u2014 любой \u2014</option>'+availableMopTypes().map(function(mt){return '<option value="'+mt+'"'+(constraints.mopType===mt?" selected":"")+'>'+mt+'-тип</option>';}).join("")+'</select></div>';
   h+='<div class="constr-row" style="gap:4px;margin-top:4px"><label style="width:70px">МОП:</label><select id="cf-mop" style="flex:1;padding:3px 5px;border:1px solid var(--bs);border-radius:4px"></select></div>';
@@ -4035,7 +4041,7 @@ function autoFull(){
   // может само добавить недостающего партнёра уже ПОСЛЕ того, как площадь подогнана под диапазон, и это
   // добавление незаметно для цикла подгонки — итоговая площадь может выйти за границы (реальный баг,
   // найденный фаззингом). Без строгого требования к площади это ограничение не нужно — оставляем как было.
-  var noPairMarkForArea=constraints.strict.area&&mopF.mopType!=="О";
+  var noPairMarkForArea=mopF.mopType!=="О";
   for(var ti=0;ti<types.length;ti++){
     var t=types[ti],n=Math.round(count*profile[t]/totalPct);
     var rng=getAreaRange(t);
@@ -4058,7 +4064,7 @@ function autoFull(){
     apts=apts.slice(0,fixedOnlyCap);
     totalA=0;for(var i=0;i<apts.length;i++){var afR=fA(apts[i].fid);if(afR)totalA+=afR.area;}
   }
-  if(constraints.strict.area){
+  {
     // Обязательная площадь: прежний двухфазный алгоритм (сначала добавлять, пока не хватит; ПОТОМ обрезать,
     // если перебор) плохо сходится в узкий диапазон — случайная добавленная квартира может одним шагом
     // перепрыгнуть весь [areaMin,areaMax] (если разница верх/низ сопоставима с площадью одной квартиры), а
@@ -4127,14 +4133,6 @@ function autoFull(){
         }
       }
     }
-  } else {
-    // Без галочки — прежнее мягкое поведение (ориентир, не жёсткое требование)
-    while(totalA<aMinV&&apts.length<Math.min(40,fixedOnlyCap)){
-      var allP=APARTMENTS.filter(function(a){var r=getAreaRange(a.type);return!isTorec(a)&&a.area>=r[0]&&a.area<=r[1]&&hasCatalogPartner(a);});
-      if(!allP.length)break;var pk2=allP[Math.floor(Math.random()*allP.length)];
-      apts.push({uid:++uidC,fid:pk2.id,kind:"apt",x:0,y:0,rot:0,mx:false,my:false});totalA+=pk2.area;
-    }
-    while(totalA>aMaxV&&apts.length>4){var rm=apts.pop();var rf=fA(rm.fid);if(rf)totalA-=rf.area;}
   }
   var segs=segsForCap;
   // МОП без обычных (растяжимых) рядов, только "карманы" фиксированной ширины (напр. новая форма О-типа) —
@@ -4317,7 +4315,7 @@ function addLayoutOption(result){
   if(!result||!result.placedArr||!result.placedArr.length)return;
   if(result.frontGapViolation)return;
   var stats=layoutMetrics(result);if(!stats||!stats.apartments)return;
-  if(constraints.strict.area&&(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01))return;
+  if(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01)return;
   if(constraints.profileTypes&&constraints.profileTypes.length){
     for(var i=0;i<result.placedArr.length;i++){
       var p=result.placedArr[i],f=fF(p);
