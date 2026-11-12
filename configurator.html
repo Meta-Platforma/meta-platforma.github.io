@@ -401,9 +401,8 @@ var constraints={aptCount:14,areaMin:550,areaMax:700,floorLen:50,floorWid:17,mop
   // ограничения (все 4 типа, равновероятно, ровно как было при снятой галочке "Доли квартир" раньше).
   // Не больше 3 одновременно (проверяется в toggleProfileType()).
   profileTypes:[],
-  // depthSetTop/depthSetBot — галочки "Глубина квартир в ядре" (1 сторона / 2 сторона), значения в мм.
-  // Пусто = без ограничения по этой стороне. "1 сторона" = верх (seg.dir<0), "2 сторона" = низ (seg.dir>0),
-  // как и везде в коде (см. my:seg.dir>0). Не применяется к 4 квартирам в связке с О-типом (core-карман).
+  // depthSetTop/depthSetBot — глубина для 1-й/2-й стороны. В Г-типе 1 сторона — внешний угол,
+  // 2 сторона — внутренняя сторона Г; остальные МОП сохраняют прежнее соответствие верх/низ.
   depthSetTop:[],depthSetBot:[]
 };
 function saveConstraint(key,val){constraints[key]=parseFloat(val)||constraints[key];}
@@ -1740,6 +1739,23 @@ function composeFloor(){
     }
     var gArmX=makeGArmProfiles(openSegs,"x"),gArmY=makeGArmProfiles(ySegs,"y");
     function gArmProfile(seg,axis){return(axis==="y"?gArmY:gArmX)[seg.segId]||null;}
+    function gArmOtherSide(axis){
+      var profiles=axis==="y"?gArmX:gArmY,sides=Object.keys(profiles).map(function(k){return profiles[k].side;});
+      if(!sides.length)return 0;
+      var sum=sides.reduce(function(a,b){return a+b;},0);
+      return sum<0?-1:sum>0?1:sides[0];
+    }
+    function gArmIsExterior(seg,axis){
+      var other=gArmOtherSide(axis),dir=seg&&Number(seg.dir);
+      if(!other||!dir)return dir<0;
+      return Math.sign(dir)!==Math.sign(other);
+    }
+    function setDepthForRow(seg,axis){
+      if(isGType){
+        var exterior=gArmIsExterior(seg,axis);
+        CURRENT_DEPTH_SET=exterior?depthTop:depthBot;
+      }else setDepthForDir(seg.dir);
+    }
     function gArmTarget(seg,requested,axis,innerOverride){
       var p=gArmProfile(seg,axis);
       if(!p)return Math.max(0,Math.min(G_ARM_MAX_MM,requested));
@@ -1779,7 +1795,8 @@ function composeFloor(){
     }
     var gCornerSegId=null;
     if(isGType){
-      var cornerRows=openSegs.filter(function(seg){var p=gArmProfile(seg,"x");return p&&Math.abs(p.inner-p.root)<=100;});
+      var cornerRows=openSegs.filter(function(seg){var p=gArmProfile(seg,"x");return p&&Math.abs(p.inner-p.root)<=100&&gArmIsExterior(seg,"x");});
+      if(!cornerRows.length)cornerRows=openSegs.filter(function(seg){var p=gArmProfile(seg,"x");return p&&Math.abs(p.inner-p.root)<=100;});
       cornerRows.sort(function(a,b){return(a.dir<0?0:1)-(b.dir<0?0:1);});
       if(cornerRows.length)gCornerSegId=cornerRows[0].segId;
     }
@@ -2086,7 +2103,7 @@ function composeFloor(){
       if(isGType&&seg.segId===gCornerSegId&&gProfileX){
         if(gProfileX.side<0)rightFlag=END_G_CORNER;else leftFlag=END_G_CORNER;
       }
-      setDepthForDir(seg.dir);
+      setDepthForRow(seg,"x");
       var xTarget=isGType?gArmTarget(seg,openWidth,"x"):openWidth;
       var rb=isGType?buildGArmRow(seg,xTarget,maxDepth,leftFlag,rightFlag,"x"):buildSideRowWithTorec(openWidth,maxDepth,leftFlag,rightFlag);
       var rowTotal=gRowSpan(rb);
@@ -2384,6 +2401,7 @@ function composeFloor(){
         var yInner=isGType?gVerticalStartAfterX(seg,gProfileY):seg.y0;
         var yTarget=isGType?gArmTarget(seg,openWidth,"y",yInner):segLen;
         var yDepth=isGType?null:segDepthLimit(seg,maxDepth);
+        if(isGType)setDepthForRow(seg,"y");
         var srY=isGType?buildGArmRow(seg,yTarget,yDepth,yStartEnd,yFinishEnd,"y",yInner):buildSideRowWithTorec(segLen,yDepth,yStartEnd,yFinishEnd);
         var ySpan=gRowSpan(srY);
         var y2=gProfileY?(gProfileY.side<0?(mop.y+yInner-ySpan):(mop.y+yInner)):absY0;
@@ -2505,17 +2523,80 @@ function mopLiftShaftArea(m){
   }
   holes.sort(function(a,b){return a-b;});return holes.slice(0,count).reduce(function(sum,a){return sum+a;},0);
 }
-function floorGabaritArea(items){
-  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(var i=0;i<items.length;i++){
-    var p=items[i],f=fF(p);if(!f||!f.pts||!f.pts.length)continue;
-    var pts=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my);
-    for(var j=0;j<pts.length;j++){
-      var x=pts[j][0]+p.x,y=pts[j][1]+p.y;
-      minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+function floorHasGType(items){
+  return (items||[]).some(function(p){if(!p||p.kind!=="mop")return false;var m=fM(p.fid);return !!(m&&m.mopType==="Г");});
+}
+function floorShapeUnion(shapes){
+  var xs=[],ys=[],polys=[];
+  function addCoord(arr,v){v=Math.round(Number(v));if(isFinite(v)&&arr.indexOf(v)<0)arr.push(v);}
+  for(var i=0;i<(shapes||[]).length;i++){
+    var pts=shapes[i]&&shapes[i].points;if(!pts||pts.length<3)continue;
+    polys.push(pts);
+    for(var j=0;j<pts.length;j++){addCoord(xs,pts[j][0]);addCoord(ys,pts[j][1]);}
+  }
+  xs.sort(function(a,b){return a-b;});ys.sort(function(a,b){return a-b;});
+  if(xs.length<2||ys.length<2)return{areaM2:0,contour:[]};
+  function contains(poly,x,y){
+    var inside=false;
+    for(var a=0,b=poly.length-1;a<poly.length;b=a++){
+      var p=poly[a],q=poly[b];
+      if(((p[1]>y)!==(q[1]>y))&&(x<(q[0]-p[0])*(y-p[1])/(q[1]-p[1])+p[0]))inside=!inside;
+    }
+    return inside;
+  }
+  var nx=xs.length-1,ny=ys.length-1,occ=[],area=0;
+  for(var y=0;y<ny;y++){
+    occ[y]=[];
+    for(var x=0;x<nx;x++){
+      var mx=(xs[x]+xs[x+1])/2,my=(ys[y]+ys[y+1])/2,filledCell=false;
+      for(var p=0;p<polys.length&&!filledCell;p++)filledCell=contains(polys[p],mx,my);
+      occ[y][x]=filledCell;
+      if(filledCell)area+=(xs[x+1]-xs[x])*(ys[y+1]-ys[y]);
     }
   }
-  return isFinite(minX)?((maxX-minX)*(maxY-minY))/1e6:0;
+  function filled(x,y){return y>=0&&y<ny&&x>=0&&x<nx&&occ[y][x];}
+  var edges=[],outgoing={};
+  function k(p){return p[0]+","+p[1];}
+  function edge(a,b){var e={a:a,b:b,used:false};edges.push(e);(outgoing[k(a)]||(outgoing[k(a)]=[])).push(e);}
+  for(var y=0;y<ny;y++)for(var x=0;x<nx;x++)if(filled(x,y)){
+    if(!filled(x,y-1))edge([xs[x],ys[y]],[xs[x+1],ys[y]]);
+    if(!filled(x+1,y))edge([xs[x+1],ys[y]],[xs[x+1],ys[y+1]]);
+    if(!filled(x,y+1))edge([xs[x+1],ys[y+1]],[xs[x],ys[y+1]]);
+    if(!filled(x-1,y))edge([xs[x],ys[y+1]],[xs[x],ys[y]]);
+  }
+  var loops=[];
+  for(var ei=0;ei<edges.length;ei++){
+    if(edges[ei].used)continue;
+    var start=edges[ei].a,cur=edges[ei],loop=[],guard=0;
+    while(cur&&!cur.used&&guard++<edges.length+2){
+      cur.used=true;loop.push(cur.a);
+      if(k(cur.b)===k(start))break;
+      var next=(outgoing[k(cur.b)]||[]).filter(function(e){return !e.used;});
+      cur=next.length?next[0]:null;
+    }
+    if(loop.length>=4&&cur&&k(cur.b)===k(start))loops.push(loop);
+  }
+  function loopArea(poly){var a=0;for(var i=0,j=poly.length-1;i<poly.length;j=i++)a+=poly[j][0]*poly[i][1]-poly[i][0]*poly[j][1];return Math.abs(a)/2;}
+  loops.sort(function(a,b){return loopArea(b)-loopArea(a);});
+  var contour=loops[0]||[];
+  if(contour.length){
+    var simple=[],changed=true;
+    for(var i=0;i<contour.length;i++)simple.push(contour[i]);
+    while(changed&&simple.length>4){
+      changed=false;
+      for(var i=0;i<simple.length;i++){
+        var a=simple[(i+simple.length-1)%simple.length],b=simple[i],c=simple[(i+1)%simple.length];
+        if((a[0]===b[0]&&b[0]===c[0])||(a[1]===b[1]&&b[1]===c[1])){simple.splice(i,1);changed=true;break;}
+      }
+    }
+    contour=simple;
+  }
+  return{areaM2:area/1e6,contour:contour};
+}
+function floorGabaritArea(items){
+  var geo=layoutGeometry(items);
+  if(!geo)return 0;
+  return floorHasGType(items)?geo.footprintArea:geo.bounds.width*geo.bounds.depth;
 }
 function computeRealFloorTEP(){
   var apts=[],mops=[];
@@ -2534,7 +2615,7 @@ function computeRealFloorTEP(){
   for(var i=0;i<apts.length;i++){var a=apts[i];if(!byType[a.type])byType[a.type]={count:0,area:0};byType[a.type].count++;byType[a.type].area+=a.area;}
   return{
     apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,
-    grossArea:Math.round(gabaritArea*10)/10,constructionArea:Math.round(constructionArea*10)/10,
+    grossArea:Math.round(gabaritArea*10)/10,footprintArea:Math.round(gabaritArea*10)/10,isGType:floorHasGType(placed),constructionArea:Math.round(constructionArea*10)/10,
     liftShaftArea:Math.round(liftShaftArea*10)/10,kepPrelimBase:Math.round(constructionArea*10)/10,
     kepPrelim:kepPrelim,kep:kep,byType:byType
   };
@@ -3998,6 +4079,7 @@ function showAutoPanel(){
     });
     h+='</div>';
   });
+  h+='<div id="g-depth-hint" style="display:none;font-size:9px;color:var(--text-muted);line-height:1.4;margin:5px 0">Для Г-типа: «1 сторона» — внешний фасад и внешний угол; «2 сторона» — внутренняя сторона Г-образного коридора. Учитывается на обоих плечах.</div>';
   h+='</div><div class="divider"></div>';
   h+='<div class="pr"><div class="pk">Компоновка этажа</div>';
   h+='<div style="font-size:9px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Диапазон площади действует всегда. Галочки у других параметров включают обязательные ограничения.</div>';
@@ -4023,9 +4105,12 @@ function showAutoPanel(){
     cfMopSel.innerHTML=opts.map(function(m){return '<option value="'+m.id+'">'+m.name+' ('+(m.w/1000).toFixed(1)+'\u00d7'+(m.d/1000).toFixed(1)+')</option>';}).join("");
     if(opts.some(function(m){return m.id===prevVal;}))cfMopSel.value=prevVal;
     else if(lastFit&&opts.some(function(m){return m.id===lastFit.mopId;}))cfMopSel.value=lastFit.mopId;
+    if(typeof syncGDepthHint==="function")syncGDepthHint();
   };
   filterCfMop();
   if(lastFit)cfMopSel.value=lastFit.mopId;
+  function syncGDepthHint(){var m=fM(cfMopSel.value),hint=document.getElementById("g-depth-hint");if(hint)hint.style.display=m&&m.mopType==="Г"?"block":"none";}
+  cfMopSel.addEventListener("change",syncGDepthHint);syncGDepthHint();
 }
 function runPlatformFit(){
   var lenM=parseFloat(document.getElementById("pf-length").value);
@@ -4391,10 +4476,10 @@ function renderFactCard(floors){
   h+='<table><tbody>';
   h+='<tr><td>S продаваемая / этаж (сумма квартир)</td><td><b>'+tep.saleArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S МОП / этаж (по контуру)</td><td><b>'+tep.mopArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>S габарита здания / этаж (X × Y)</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
+  h+='<tr><td>'+(tep.isGType?'S пятна здания / этаж (по внешнему контуру)':'S габарита здания / этаж (X × Y)')+'</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S шахт лифтов / этаж</td><td><b>'+tep.liftShaftArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>S строительная / этаж (габарит − шахты)</td><td><b>'+tep.constructionArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>КЭП (S прод / S габарита)</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
+  h+='<tr><td>'+(tep.isGType?'S строительная / этаж (пятно − шахты)':'S строительная / этаж (габарит − шахты)')+'</td><td><b>'+tep.constructionArea+' м\u00b2</b></td></tr>';
+  h+='<tr><td>КЭП (S прод / '+(tep.isGType?'S пятна по контуру':'S габарита')+')</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
   h+='<tr><td>КЭП предварительный (S кв. / S строительная)</td><td><b>'+tep.kepPrelim.toFixed(4)+'</b></td></tr>';
   h+='</tbody></table>';
   if(lastFit){
@@ -4422,13 +4507,13 @@ window.getMetaMassingPayload=function(){
     parts.push({kind:p.kind,name:f.name||String(p.fid),points_m:pts});
   }
   if(!isFinite(minX))throw new Error("В плане нет геометрии для передачи");
-  var tep=computeRealFloorTEP(),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18);
-  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,liftShaftArea_m2:tep.liftShaftArea,kep:Math.round(tep.kep*10000)/10000,kepPreliminary:Math.round(tep.kepPrelim*10000)/10000},parts:parts};
+  var tep=computeRealFloorTEP(),geo=layoutGeometry(placed),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18);
+  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,footprintArea_m2:tep.footprintArea,liftShaftArea_m2:tep.liftShaftArea,kep:Math.round(tep.kep*10000)/10000,kepPreliminary:Math.round(tep.kepPrelim*10000)/10000},boundary_m:geo&&geo.isGType&&geo.footprintContour?geo.footprintContour.map(function(p){return[Math.round(p[0])/1000,Math.round(p[1])/1000];}):null,parts:parts};
 };
 </script>
 <script>
 // Автоподбор: собираем независимые кандидаты, а рабочую геометрию обновляем только после выбора.
-var LAYOUT_VARIANTS=[],LAYOUT_KEYS={},LAYOUT_MAKER=null,LAYOUT_FIT=null,LAYOUT_SEARCH_TOKEN=0,LAYOUT_ATTEMPTS=0;
+var LAYOUT_VARIANTS=[],LAYOUT_KEYS={},LAYOUT_MAKER=null,LAYOUT_FIT=null,LAYOUT_SEARCH_TOKEN=0,LAYOUT_ATTEMPTS=0,LAYOUT_SEARCH_RUNNING=false;
 function layoutNumber(v,d){return (Number(v)||0).toFixed(d===undefined?1:d);}
 function layoutGeometry(items){
   var all=[],minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -4442,7 +4527,8 @@ function layoutGeometry(items){
     all.push({kind:p.kind,name:f.name||"",type:f.type||"",points:points});
   }
   if(!isFinite(minX))return null;
-  return {shapes:all,bounds:{minX:minX,minY:minY,maxX:maxX,maxY:maxY,width:(maxX-minX)/1000,depth:(maxY-minY)/1000}};
+  var isG=floorHasGType(items),boxArea=((maxX-minX)*(maxY-minY))/1e6,union=isG?floorShapeUnion(all):null;
+  return {shapes:all,isGType:isG,footprintArea:isG?union.areaM2:boxArea,footprintContour:isG?union.contour:null,bounds:{minX:minX,minY:minY,maxX:maxX,maxY:maxY,width:(maxX-minX)/1000,depth:(maxY-minY)/1000}};
 }
 function layoutMetrics(result){
   var items=result.placedArr||[],types={},sale=0,mc=0,mop=0,lift=0;
@@ -4456,7 +4542,7 @@ function layoutMetrics(result){
     }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);}
   }
   var geo=layoutGeometry(items);if(!geo)return null;
-  var gabarit=geo.bounds.width*geo.bounds.depth,construction=Math.max(0,gabarit-lift);
+  var gabarit=geo.footprintArea,construction=Math.max(0,gabarit-lift);
   var kepPrelim=construction?sale/construction:0;
   return {sale:sale,mop:mop,gross:construction,gabarit:gabarit,construction:construction,liftShaftArea:lift,kepPrelim:kepPrelim,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
 }
@@ -4476,6 +4562,11 @@ function layoutImage(metrics){
     if(f.kind==="apt"){var xs=pts.reduce(function(s,q){return s+q[0];},0)/pts.length,ys=pts.reduce(function(s,q){return s+q[1];},0)/pts.length;
       ct.fillStyle="#314457";ct.font="bold 10px sans-serif";ct.textAlign="center";ct.fillText(f.type,ox+xs*sc,oy+ys*sc);
     }
+  }
+  if(geo.isGType&&geo.footprintContour&&geo.footprintContour.length>2){
+    ct.beginPath();
+    geo.footprintContour.forEach(function(p,i){var x=ox+p[0]*sc,y=oy+p[1]*sc;if(!i)ct.moveTo(x,y);else ct.lineTo(x,y);});
+    ct.closePath();ct.strokeStyle="#ed1673";ct.lineWidth=3;ct.lineJoin="round";ct.stroke();
   }
   return cv2.toDataURL("image/png");
 }
@@ -4511,9 +4602,9 @@ function renderLayoutOptions(){
     html+='<span>Габарит: длина (X)</span><strong>'+layoutNumber(b.width)+' м</strong>';
     html+='<span>Габарит: ширина (Y)</span><strong>'+layoutNumber(b.depth)+' м</strong>';
     html+='<span>Площадь квартир / этаж</span><strong>'+layoutNumber(m.sale)+' м²</strong>';
-    html+='<span>Площадь габарита здания / этаж (X × Y)</span><strong>'+layoutNumber(m.gabarit)+' м²</strong>';
-    html+='<span>Строительная площадь / этаж (габарит − шахты)</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
-    html+='<span title="S квартир / (габарит здания X × Y − шахты лифтов)">КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
+    html+='<span>'+(m.geo.isGType?'Площадь пятна здания / этаж':'Площадь габарита здания / этаж (X × Y)')+'</span><strong>'+layoutNumber(m.gabarit)+' м²</strong>';
+    html+='<span>'+(m.geo.isGType?'Строительная площадь / этаж (пятно − шахты)':'Строительная площадь / этаж (габарит − шахты)')+'</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
+    html+='<span title="S квартир / (площадь здания по контуру − шахты лифтов)">КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
     html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
     html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
     html+='<table class="layout-types"><thead><tr><th>Тип квартир</th><th>Площадь, от–до</th><th>Доля</th></tr></thead><tbody>';
@@ -4524,14 +4615,14 @@ function renderLayoutOptions(){
     }
     html+='</tbody></table><button class="layout-choose" type="button" data-choice="'+v.id+'">Выбрать этот вариант</button></div></article>';
   }
-  document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" style="padding:15px">Подходящих компоновок пока нет. Поиск продолжается или ограничения слишком строгие.</p>';
+  document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" role="status" style="padding:22px;text-align:center">'+(LAYOUT_SEARCH_RUNNING?'Подбираю варианты по заданным ограничениям…':'Совпадающих планировок не найдено. Проверьте диапазон площади, глубину и выбранный тип квартиры.')+'</p>';
   document.querySelectorAll("#layoutTiles [data-choice]").forEach(function(button){
     button.onclick=function(){selectLayoutOption(+this.getAttribute("data-choice"));};
   });
 }
 function selectLayoutOption(id){
   var choice=LAYOUT_VARIANTS.find(function(v){return v.id===id;});if(!choice)return;
-  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;LAYOUT_SEARCH_RUNNING=false;
   placed=choice.result.placedArr.map(function(p){return Object.assign({},p);});
   uidC=placed.reduce(function(m,p){return Math.max(m,p.uid);},0);
   sel=null;lastFit=Object.assign({},choice.fit);
@@ -4541,28 +4632,35 @@ function selectLayoutOption(id){
   resetView();draw();updateProps();if(mode==="auto")showAutoPanel();
 }
 function closeLayoutOptions(){
-  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_MAKER=null;LAYOUT_SEARCH_RUNNING=false;
   document.getElementById("layoutChooser").classList.remove("open");
 }
 function searchLayoutOptions(quantity){
   var token=++LAYOUT_SEARCH_TOKEN,remaining=Math.max(0,quantity||50),more=document.getElementById("layoutMore"),status=document.getElementById("layoutStatus");
-  more.disabled=true;
+  more.disabled=true;LAYOUT_SEARCH_RUNNING=true;
   function step(){
-    if(token!==LAYOUT_SEARCH_TOKEN||!LAYOUT_MAKER)return;
-    var batch=Math.min(2,remaining);
+    if(token!==LAYOUT_SEARCH_TOKEN||!LAYOUT_MAKER){LAYOUT_SEARCH_RUNNING=false;return;}
+    var batch=Math.min(6,remaining),searchError="";
     for(var i=0;i<batch;i++){
       try{var r=LAYOUT_MAKER();LAYOUT_ATTEMPTS++;addLayoutOption(r);}
-      catch(e){console.warn("Не удалось построить вариант",e);remaining=0;status.textContent="Поиск прерван: "+(e.message||e);break;}
+      catch(e){console.warn("Не удалось построить вариант",e);searchError=e.message||String(e);remaining=0;break;}
       remaining--;
     }
-    if(remaining===0||remaining%9===0)renderLayoutOptions();
-    if(remaining>0){setTimeout(step,0);}
-    else{more.disabled=false;status.textContent="Найдено "+LAYOUT_VARIANTS.length+" компоновок за "+LAYOUT_ATTEMPTS+" попыток. Комбинаций может быть больше — нажмите «Найти ещё варианты»."; }
+    renderLayoutOptions();
+    if(remaining>0){
+      status.textContent="Подбираю варианты… найдено "+LAYOUT_VARIANTS.length+", проверено "+LAYOUT_ATTEMPTS+".";
+      setTimeout(step,0);
+    }else{
+      LAYOUT_SEARCH_RUNNING=false;more.disabled=false;
+      status.textContent=searchError?"Поиск остановлен: "+searchError:
+        (LAYOUT_VARIANTS.length?"Найдено "+LAYOUT_VARIANTS.length+" вариантов за "+LAYOUT_ATTEMPTS+" попыток. Можно продолжить поиск.":"За "+LAYOUT_ATTEMPTS+" попыток подходящая планировка не найдена. Измените ограничения или нажмите «Найти ещё варианты».");
+      renderLayoutOptions();
+    }
   }
-  setTimeout(step,0);
+  renderLayoutOptions();setTimeout(step,0);
 }
 function openLayoutVariants(seed,maker,fit){
-  LAYOUT_SEARCH_TOKEN++;LAYOUT_VARIANTS=[];LAYOUT_KEYS={};LAYOUT_ATTEMPTS=1;
+  LAYOUT_SEARCH_TOKEN++;LAYOUT_VARIANTS=[];LAYOUT_KEYS={};LAYOUT_ATTEMPTS=1;LAYOUT_SEARCH_RUNNING=true;
   LAYOUT_MAKER=maker;LAYOUT_FIT=fit;
   document.getElementById("layoutSort").value="sale";
   document.getElementById("layoutScroll").scrollTop=0;
