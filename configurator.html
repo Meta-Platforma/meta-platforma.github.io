@@ -2335,15 +2335,35 @@ function autoFitPlatform(platformType,mopId){
 }
 
 function mopLiftShaftArea(m){
-  var count=parseInt(String(m&&m.lifts||"0"),10)||0;if(!count)return 0;
+  var type=String(m&&m.mopType||"").trim().toUpperCase();
+  var count=parseInt(String(m&&m.lifts||"0"),10)||0;
+  var cargo=1.7*2.7,passenger=1.8*1.8;
+  // Пользовательские габариты шахт: грузовой 1700×2700, пассажирский 1800×1800 мм.
+  if(type==="Н"||type==="H"){
+    if(count===4)return 2*cargo+2*passenger;
+    if(count===3)return 2*cargo+passenger;
+  }
+  if(type==="О"||type==="O")return 3*cargo;
+  if(type==="Т"||type==="T")return 2*cargo+passenger;
+  // Для неуказанных типов сохраняем прежнее определение по контурам МОП.
   var holes=[];
   for(var zi=0;zi<(m.zones||[]).length;zi++){
     var z=m.zones[zi];if(z.mat!=="llu"||!z.loops||z.loops.length<2)continue;
     for(var li=1;li<z.loops.length;li++)holes.push(polygonAreaMM(z.loops[li])/1e6);
   }
-  // В данных МОП первый контур ЛЛУ — наружный, внутренние контуры — лестница и шахты.
-  // Шахты лифтов — count наименьших внутренних прямоугольников; крупный контур лестницы исключается.
-  holes.sort(function(a,b){return a-b;});return holes.slice(0,count).reduce(function(s,a){return s+a;},0);
+  holes.sort(function(a,b){return a-b;});return holes.slice(0,count).reduce(function(sum,a){return sum+a;},0);
+}
+function floorGabaritArea(items){
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(var i=0;i<items.length;i++){
+    var p=items[i],f=fF(p);if(!f||!f.pts||!f.pts.length)continue;
+    var pts=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my);
+    for(var j=0;j<pts.length;j++){
+      var x=pts[j][0]+p.x,y=pts[j][1]+p.y;
+      minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+    }
+  }
+  return isFinite(minX)?((maxX-minX)*(maxY-minY))/1e6:0;
 }
 function computeRealFloorTEP(){
   var apts=[],mops=[];
@@ -2353,14 +2373,19 @@ function computeRealFloorTEP(){
   }
   var saleArea=0;for(var i=0;i<apts.length;i++)saleArea+=apts[i].area;
   var mopArea=0;for(var i=0;i<mops.length;i++)mopArea+=polygonAreaMM(mops[i].pts)/1e6;
-  var grossArea=saleArea+mopArea;
+  var gabaritArea=floorGabaritArea(placed);if(!gabaritArea)gabaritArea=saleArea+mopArea;
   var liftShaftArea=0;for(var i=0;i<mops.length;i++)liftShaftArea+=mopLiftShaftArea(mops[i]);
-  var kepPrelimBase=Math.max(0,grossArea-liftShaftArea);
-  var kepPrelim=kepPrelimBase>0?saleArea/kepPrelimBase:0;
-  var kep=grossArea>0?saleArea/grossArea:0;
+  var constructionArea=Math.max(0,gabaritArea-liftShaftArea);
+  var kepPrelim=constructionArea>0?saleArea/constructionArea:0;
+  var kep=gabaritArea>0?saleArea/gabaritArea:0;
   var byType={};
   for(var i=0;i<apts.length;i++){var a=apts[i];if(!byType[a.type])byType[a.type]={count:0,area:0};byType[a.type].count++;byType[a.type].area+=a.area;}
-  return{apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,grossArea:Math.round(grossArea),liftShaftArea:Math.round(liftShaftArea*10)/10,kepPrelimBase:Math.round(kepPrelimBase*10)/10,kepPrelim:kepPrelim,kep:kep,byType:byType};
+  return{
+    apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,
+    grossArea:Math.round(gabaritArea*10)/10,constructionArea:Math.round(constructionArea*10)/10,
+    liftShaftArea:Math.round(liftShaftArea*10)/10,kepPrelimBase:Math.round(constructionArea*10)/10,
+    kepPrelim:kepPrelim,kep:kep,byType:byType
+  };
 }
 
 function downloadJSON(name,data){
@@ -2396,6 +2421,7 @@ function exportPlatformFact(){
       saleArea_m2:tep.saleArea,
       mopArea_m2:tep.mopArea,
       grossArea_m2:tep.grossArea,
+      constructionArea_m2:tep.constructionArea,
       kep:Math.round(tep.kep*10000)/10000,
       liftShaftArea_m2:tep.liftShaftArea,
       kepPreliminary:Math.round(tep.kepPrelim*10000)/10000
@@ -2804,7 +2830,7 @@ function renderTEPOverlay(){
     var t=keys[i],d=byType[t],s=st(t),pct=(d.count/totalC*100);
     rows+='<tr><td><span class="tovdot" style="background:'+s.c+'"></span>'+t+'</td><td>'+d.count+'</td><td>'+d.area+' м²</td><td>'+(d.count*floors)+'</td><td>'+(d.area*floors)+' м²</td><td>'+pct.toFixed(1)+'%</td></tr>';
   }
-  el.innerHTML='<table><thead><tr><th>Тип</th><th>Кол/эт</th><th>S/эт</th><th>Кол всего</th><th>S всего</th><th>Доля</th></tr></thead><tbody>'+rows+'<tr class="tovtotal"><td>ИТОГО</td><td>'+totalC+'</td><td>'+totalA+' м²</td><td>'+(totalC*floors)+'</td><td>'+(totalA*floors)+' м²</td><td>100%</td></tr><tr><td>Ср. S кв.</td><td colspan="5">'+(totalC?(totalA/totalC).toFixed(1):"0")+' м²</td></tr><tr title="КЭП = продаваемая площадь квартир / строительная площадь этажа (квартиры + МОП)"><td>КЭП</td><td colspan="5"><b>'+floorTep.kep.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / '+floorTep.grossArea+' м²)</span></td></tr><tr title="КЭП предварительный = площадь квартир / (строительная площадь − шахты лифтов)"><td>КЭП предварительный</td><td colspan="5"><b>'+floorTep.kepPrelim.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / ('+floorTep.grossArea+' − '+floorTep.liftShaftArea+') м²)</span></td></tr></tbody></table>';
+  el.innerHTML='<table><thead><tr><th>Тип</th><th>Кол/эт</th><th>S/эт</th><th>Кол всего</th><th>S всего</th><th>Доля</th></tr></thead><tbody>'+rows+'<tr class="tovtotal"><td>ИТОГО</td><td>'+totalC+'</td><td>'+totalA+' м²</td><td>'+(totalC*floors)+'</td><td>'+(totalA*floors)+' м²</td><td>100%</td></tr><tr><td>Ср. S кв.</td><td colspan="5">'+(totalC?(totalA/totalC).toFixed(1):"0")+' м²</td></tr><tr title="КЭП = продаваемая площадь квартир / площадь габарита здания (X × Y)"><td>КЭП</td><td colspan="5"><b>'+floorTep.kep.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / '+floorTep.grossArea+' м²)</span></td></tr><tr title="КЭП предварительный = площадь квартир / (площадь габарита здания − площадь шахт лифтов)"><td>КЭП предварительный</td><td colspan="5"><b>'+floorTep.kepPrelim.toFixed(3)+'</b> <span style="color:var(--text-sec)">('+floorTep.saleArea+' / '+floorTep.constructionArea+' м²)</span></td></tr></tbody></table>';
 }
 
 function drawDockIssues(){
@@ -4199,10 +4225,11 @@ function renderFactCard(floors){
   h+='<table><tbody>';
   h+='<tr><td>S продаваемая / этаж (сумма квартир)</td><td><b>'+tep.saleArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S МОП / этаж (по контуру)</td><td><b>'+tep.mopArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>S строительная / этаж (кв. + МОП)</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
+  h+='<tr><td>S габарита здания / этаж (X × Y)</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S шахт лифтов / этаж</td><td><b>'+tep.liftShaftArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>КЭП (S прод / S стр)</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
-  h+='<tr><td>КЭП предварительный (S кв. / (S стр. − шахты))</td><td><b>'+tep.kepPrelim.toFixed(4)+'</b></td></tr>';
+  h+='<tr><td>S строительная / этаж (габарит − шахты)</td><td><b>'+tep.constructionArea+' м\u00b2</b></td></tr>';
+  h+='<tr><td>КЭП (S прод / S габарита)</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
+  h+='<tr><td>КЭП предварительный (S кв. / S строительная)</td><td><b>'+tep.kepPrelim.toFixed(4)+'</b></td></tr>';
   h+='</tbody></table>';
   if(lastFit){
     var devTop=lastFit.achievedTop-lastFit.targetW,devBot=lastFit.achievedBot-lastFit.targetW;
@@ -4263,8 +4290,9 @@ function layoutMetrics(result){
     }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);}
   }
   var geo=layoutGeometry(items);if(!geo)return null;
-  var gross=sale+mop,prelimBase=Math.max(0,gross-lift);
-  return {sale:sale,mop:mop,gross:gross,liftShaftArea:lift,kepPrelim:prelimBase?sale/prelimBase:0,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
+  var gabarit=geo.bounds.width*geo.bounds.depth,construction=Math.max(0,gabarit-lift);
+  var kepPrelim=construction?sale/construction:0;
+  return {sale:sale,mop:mop,gross:construction,gabarit:gabarit,construction:construction,liftShaftArea:lift,kepPrelim:kepPrelim,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
 }
 function layoutImage(metrics){
   var geo=metrics.geo,b=geo.bounds,cv2=document.createElement("canvas");
@@ -4316,8 +4344,9 @@ function renderLayoutOptions(){
     html+='<span>Габарит: длина (X)</span><strong>'+layoutNumber(b.width)+' м</strong>';
     html+='<span>Габарит: ширина (Y)</span><strong>'+layoutNumber(b.depth)+' м</strong>';
     html+='<span>Площадь квартир / этаж</span><strong>'+layoutNumber(m.sale)+' м²</strong>';
-    html+='<span>Строительная площадь / этаж</span><strong>'+layoutNumber(m.gross)+' м²</strong>';
-    html+='<span>КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
+    html+='<span>Площадь габарита здания / этаж (X × Y)</span><strong>'+layoutNumber(m.gabarit)+' м²</strong>';
+    html+='<span>Строительная площадь / этаж (габарит − шахты)</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
+    html+='<span title="S квартир / (габарит здания X × Y − шахты лифтов)">КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
     html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
     html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
     html+='<table class="layout-types"><thead><tr><th>Тип квартир</th><th>Площадь, от–до</th><th>Доля</th></tr></thead><tbody>';
