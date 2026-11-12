@@ -2508,20 +2508,35 @@ function mopLiftShaftArea(m){
   var type=String(m&&m.mopType||"").trim().toUpperCase();
   var count=parseInt(String(m&&m.lifts||"0"),10)||0;
   var cargo=1.7*2.7,passenger=1.8*1.8;
-  // Пользовательские габариты шахт: грузовой 1700×2700, пассажирский 1800×1800 мм.
+  // Площадь строительного этажа = объединённая площадь геометрии МОП и квартир без двойного счёта.
+  // Для Г-типа вычитаются только шахты лифтов по заданным габаритам, а не все внутренние полости МОП.
+  // Габариты шахт: грузовой 1700×2700 мм, пассажирский 1800×1800 мм.
+  if(type==="Г"||type==="G"){
+    if(count===1)return cargo;
+    if(count===2)return cargo+passenger;
+  }
   if(type==="Н"||type==="H"){
     if(count===4)return 2*cargo+2*passenger;
     if(count===3)return 2*cargo+passenger;
   }
   if(type==="О"||type==="O")return 3*cargo;
   if(type==="Т"||type==="T")return 2*cargo+passenger;
-  // Для неуказанных типов сохраняем прежнее определение по контурам МОП.
+  // Для остальных типов сохраняем расчёт по контурам шахт из каталога МОП.
   var holes=[];
   for(var zi=0;zi<(m.zones||[]).length;zi++){
     var z=m.zones[zi];if(z.mat!=="llu"||!z.loops||z.loops.length<2)continue;
     for(var li=1;li<z.loops.length;li++)holes.push(polygonAreaMM(z.loops[li])/1e6);
   }
   holes.sort(function(a,b){return a-b;});return holes.slice(0,count).reduce(function(sum,a){return sum+a;},0);
+}
+function mopLiftShaftMethod(m){
+  var type=String(m&&m.mopType||"").trim().toUpperCase();
+  var count=parseInt(String(m&&m.lifts||"0"),10)||0;
+  if(type==="Г"||type==="G"){
+    if(count===1)return "Г-тип: 1 грузовой лифт 1,70×2,70 м = 4,59 м²";
+    if(count===2)return "Г-тип: грузовой 1,70×2,70 м + пассажирский 1,80×1,80 м = 7,83 м²";
+  }
+  return "По внутренним контурам шахт МОП из каталога";
 }
 function floorHasGType(items){
   return (items||[]).some(function(p){if(!p||p.kind!=="mop")return false;var m=fM(p.fid);return !!(m&&m.mopType==="Г");});
@@ -2608,6 +2623,7 @@ function computeRealFloorTEP(){
   var mopArea=0;for(var i=0;i<mops.length;i++)mopArea+=polygonAreaMM(mops[i].pts)/1e6;
   var gabaritArea=floorGabaritArea(placed);if(!gabaritArea)gabaritArea=saleArea+mopArea;
   var liftShaftArea=0;for(var i=0;i<mops.length;i++)liftShaftArea+=mopLiftShaftArea(mops[i]);
+  var liftShaftMethod=mops.map(mopLiftShaftMethod).join("; ");
   var constructionArea=Math.max(0,gabaritArea-liftShaftArea);
   var kepPrelim=constructionArea>0?saleArea/constructionArea:0;
   var kep=gabaritArea>0?saleArea/gabaritArea:0;
@@ -2616,7 +2632,7 @@ function computeRealFloorTEP(){
   return{
     apartments:apts.length,saleArea:Math.round(saleArea),mopArea:Math.round(mopArea*10)/10,
     grossArea:Math.round(gabaritArea*10)/10,footprintArea:Math.round(gabaritArea*10)/10,isGType:floorHasGType(placed),constructionArea:Math.round(constructionArea*10)/10,
-    liftShaftArea:Math.round(liftShaftArea*10)/10,kepPrelimBase:Math.round(constructionArea*10)/10,
+    liftShaftArea:Math.round(liftShaftArea*100)/100,liftShaftMethod:liftShaftMethod,kepPrelimBase:Math.round(constructionArea*10)/10,
     kepPrelim:kepPrelim,kep:kep,byType:byType
   };
 }
@@ -4473,11 +4489,12 @@ function renderFactCard(floors){
   var tep=computeRealFloorTEP();
   var h='<div class="tcard"><h3>Факт для МЕТАМАССИНГ</h3>';
   h+='<div style="font-size:11px;color:var(--text-sec);margin-bottom:8px">Реальная S проданной площади и S МОП (по фактической геометрии), в отличие от нормативных констант saleFloor/grossFloor в МЕТАМАССИНГ.</div>';
+  if(tep.isGType)h+='<div style="font-size:11px;color:var(--text-sec);background:#f6f8fb;border-radius:6px;padding:8px;margin-bottom:8px"><b>Методика Г-типа:</b> S пятна — площадь объединённой геометрии МОП и квартир без двойного счёта; S строительная = S пятна − S шахт; предварительный КЭП = S квартир / S строительная. '+(tep.liftShaftMethod||"Площадь шахт берётся из контура МОП.")+'</div>';
   h+='<table><tbody>';
   h+='<tr><td>S продаваемая / этаж (сумма квартир)</td><td><b>'+tep.saleArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>S МОП / этаж (по контуру)</td><td><b>'+tep.mopArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>'+(tep.isGType?'S пятна здания / этаж (по внешнему контуру)':'S габарита здания / этаж (X × Y)')+'</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
-  h+='<tr><td>S шахт лифтов / этаж</td><td><b>'+tep.liftShaftArea+' м\u00b2</b></td></tr>';
+  h+='<tr title="'+(tep.isGType?'Объединённая площадь геометрии квартир и МОП без двойного счёта':'Площадь габаритного прямоугольника X × Y')+'"><td>'+(tep.isGType?'S пятна здания / этаж (объединённый контур)':'S габарита здания / этаж (X × Y)')+'</td><td><b>'+tep.grossArea+' м\u00b2</b></td></tr>';
+  h+='<tr title="'+(tep.liftShaftMethod||"По геометрии МОП")+'"><td>S шахт лифтов / этаж</td><td><b>'+tep.liftShaftArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>'+(tep.isGType?'S строительная / этаж (пятно − шахты)':'S строительная / этаж (габарит − шахты)')+'</td><td><b>'+tep.constructionArea+' м\u00b2</b></td></tr>';
   h+='<tr><td>КЭП (S прод / '+(tep.isGType?'S пятна по контуру':'S габарита')+')</td><td><b>'+tep.kep.toFixed(4)+'</b></td></tr>';
   h+='<tr><td>КЭП предварительный (S кв. / S строительная)</td><td><b>'+tep.kepPrelim.toFixed(4)+'</b></td></tr>';
@@ -4531,7 +4548,7 @@ function layoutGeometry(items){
   return {shapes:all,isGType:isG,footprintArea:isG?union.areaM2:boxArea,footprintContour:isG?union.contour:null,bounds:{minX:minX,minY:minY,maxX:maxX,maxY:maxY,width:(maxX-minX)/1000,depth:(maxY-minY)/1000}};
 }
 function layoutMetrics(result){
-  var items=result.placedArr||[],types={},sale=0,mc=0,mop=0,lift=0;
+  var items=result.placedArr||[],types={},sale=0,mc=0,mop=0,lift=0,liftMethods=[];
   for(var i=0;i<items.length;i++){
     var p=items[i],f=fF(p);if(!f)continue;
     if(p.kind==="apt"){
@@ -4539,12 +4556,12 @@ function layoutMetrics(result){
       sale+=a;mc++;
       if(!types[t])types[t]={count:0,min:Infinity,max:-Infinity};
       types[t].count++;types[t].min=Math.min(types[t].min,a);types[t].max=Math.max(types[t].max,a);
-    }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);}
+    }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);liftMethods.push(mopLiftShaftMethod(f));}
   }
   var geo=layoutGeometry(items);if(!geo)return null;
   var gabarit=geo.footprintArea,construction=Math.max(0,gabarit-lift);
   var kepPrelim=construction?sale/construction:0;
-  return {sale:sale,mop:mop,gross:construction,gabarit:gabarit,construction:construction,liftShaftArea:lift,kepPrelim:kepPrelim,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
+  return {sale:sale,mop:mop,gross:construction,gabarit:gabarit,construction:construction,liftShaftArea:lift,liftShaftMethod:liftMethods.join("; "),kepPrelim:kepPrelim,apartments:mc,average:mc?sale/mc:0,types:types,geo:geo};
 }
 function layoutImage(metrics){
   var geo=metrics.geo,b=geo.bounds,cv2=document.createElement("canvas");
@@ -4602,8 +4619,9 @@ function renderLayoutOptions(){
     html+='<span>Габарит: длина (X)</span><strong>'+layoutNumber(b.width)+' м</strong>';
     html+='<span>Габарит: ширина (Y)</span><strong>'+layoutNumber(b.depth)+' м</strong>';
     html+='<span>Площадь квартир / этаж</span><strong>'+layoutNumber(m.sale)+' м²</strong>';
-    html+='<span>'+(m.geo.isGType?'Площадь пятна здания / этаж':'Площадь габарита здания / этаж (X × Y)')+'</span><strong>'+layoutNumber(m.gabarit)+' м²</strong>';
-    html+='<span>'+(m.geo.isGType?'Строительная площадь / этаж (пятно − шахты)':'Строительная площадь / этаж (габарит − шахты)')+'</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
+    html+='<span title="'+(m.geo.isGType?'Объединённая площадь геометрии квартир и МОП без двойного счёта':'Площадь габаритного прямоугольника X × Y')+'">'+(m.geo.isGType?'Площадь пятна здания / этаж':'Площадь габарита здания / этаж (X × Y)')+'</span><strong>'+layoutNumber(m.gabarit)+' м²</strong>';
+    html+='<span title="'+(m.liftShaftMethod||"По геометрии МОП")+'">Шахты лифтов / этаж</span><strong>'+layoutNumber(m.liftShaftArea,2)+' м²</strong>';
+    html+='<span title="'+(m.geo.isGType?'S строительная = площадь пятна Г-секции − шахты лифтов':'S строительная = габарит X × Y − шахты лифтов')+'">'+(m.geo.isGType?'Строительная площадь / этаж (пятно − шахты)':'Строительная площадь / этаж (габарит − шахты)')+'</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
     html+='<span title="S квартир / (площадь здания по контуру − шахты лифтов)">КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
     html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
     html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
