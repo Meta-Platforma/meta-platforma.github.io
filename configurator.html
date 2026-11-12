@@ -8,7 +8,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="bingbot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
 <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet,noimageindex">
-<title>Конфигуратор типового этажа v50</title>
+<title>Конфигуратор типового этажа v51</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f4f4f2;--surface:#fff;--surface-2:#fafaf8;--text:#1a1a18;--text-sec:#666;--text-muted:#999;--border:#e0e0dc;--bs:#c8c8c2;--accent:#2563eb;--c1s:#2196f3;--c1s-bg:rgba(33,150,243,0.12);--c1k:#4caf50;--c1k-bg:rgba(76,175,80,0.12);--c3s:#ff9800;--c3s-bg:rgba(255,152,0,0.12);--c4s:#f44336;--c4s-bg:rgba(244,67,54,0.12);--cmop:#78909c;--cmop-bg:rgba(120,144,156,0.15)}
@@ -194,7 +194,7 @@ html.embedded header .meta-nav{display:none}
 </head>
 <body>
 <header>
-  <h1>Конфигуратор типового этажа <span style="color:var(--text-muted);font-weight:500">v49</span></h1>
+  <h1>Конфигуратор типового этажа <span style="color:var(--text-muted);font-weight:500">v51</span></h1>
   <div class="mtabs">
     <button class="mtab active" onclick="setMode('manual')">Ручной</button>
     <button class="mtab" onclick="setMode('auto')">Авто-подбор</button>
@@ -746,7 +746,7 @@ function getPairUnits(){if(!PAIR_UNITS)PAIR_UNITS=buildPairUnits();return PAIR_U
 // seedForms — формы, УЖЕ занятые на этом ряду правилами торца (торцевая квартира, 3С напротив неё и т.п.).
 // Их обязательно учесть до подбора середины: на этаже ~13 квартир, из них до 4 задаёт правило торца, и без
 // такого зачёта середина не знает, что доля 3С уже выбрана, — фактический состав уезжал от бегунков.
-function buildRowToLength(targetLen,tolerance,maxDepth,seedForms){
+function buildRowToLength(targetLen,tolerance,maxDepth,seedForms,edgeDepth){
   var types=["1С","1К/2С","3С","4С"].filter(typeAllowed);
   if(!types.length)types=["1С","1К/2С","3С","4С"]; // подстраховка: ACTIVE_TYPES не должен опустошать список
   var totalPct=0;for(var i=0;i<types.length;i++)totalPct+=profile[types[i]]||0;
@@ -764,6 +764,28 @@ function buildRowToLength(targetLen,tolerance,maxDepth,seedForms){
   // Ряд самодостаточен: каждый ряд ведём к тем же долям, и этаж из таких рядов складывается около цели.
   profileTallyReset();
   if(seedForms)for(var si=0;si<seedForms.length;si++)if(seedForms[si])profileTallyAdd(seedForms[si].type);
+  // На стыке с торцевой формой подбираем соседнюю квартиру с такой же глубиной фасада.
+  // Иначе обычная форма может быть мельче и оставить видимый уступ/пробел вдоль фасада.
+  function edgeDepthDelta(unit,isFirst,remaining){
+    var score=0,checked=0;
+    if(edgeDepth&&isFirst&&edgeDepth.left!==null&&edgeDepth.left!==undefined){
+      var lf=unit.a||unit.apt||unit,ld=lf&&Number(lf.d);
+      if(isFinite(ld)){score+=Math.abs(ld-edgeDepth.left);checked++;}
+    }
+    if(edgeDepth&&remaining-unit.w<=tolerance&&edgeDepth.right!==null&&edgeDepth.right!==undefined){
+      var rf=unit.b||unit.apt||unit,rd=rf&&Number(rf.d);
+      if(isFinite(rd)){score+=Math.abs(rd-edgeDepth.right);checked++;}
+    }
+    return checked?score:null;
+  }
+  function preferEdgeDepth(pool,remaining,isFirst){
+    if(!edgeDepth||!pool.length)return pool;
+    var ranked=pool.map(function(u){return{unit:u,delta:edgeDepthDelta(u,isFirst,remaining)};}).filter(function(x){return x.delta!==null;});
+    if(!ranked.length)return pool;
+    ranked.sort(function(a,b){return a.delta-b.delta;});
+    var best=ranked[0].delta;
+    return ranked.filter(function(x){return x.delta<=best+100;}).map(function(x){return x.unit;});
+  }
   var row=[],used=0,guard=0;
   while(used<targetLen-tolerance&&guard<80){
     guard++;
@@ -778,6 +800,7 @@ function buildRowToLength(targetLen,tolerance,maxDepth,seedForms){
           var poolD=poolU.filter(function(u){return profileDeficit(u.a.type)>0||profileDeficit(u.b.type)>0;});
           if(poolD.length)poolU=poolD;
         }
+        poolU=preferEdgeDepth(poolU,remaining,row.length===0);
         poolU=poolU.slice().sort(function(a,b){return Math.abs(remaining-a.w)-Math.abs(remaining-b.w);});
         var pickU=(remaining<9000)?poolU[0]:poolU[Math.floor(Math.random()*Math.min(poolU.length,8))];
         row.push({kind:"pair",a:pickU.a,b:pickU.b,overlap:pickU.overlap});used+=pickU.w;placedSomething=true;
@@ -807,12 +830,14 @@ function buildRowToLength(targetLen,tolerance,maxDepth,seedForms){
       }
       if(!pool.length){
         var poolU2=units.filter(function(u){return u.w<=remaining+tolerance;});
+        poolU2=preferEdgeDepth(poolU2,remaining,row.length===0);
         if(poolU2.length){
           poolU2=poolU2.slice().sort(function(a,b){return Math.abs(remaining-a.w)-Math.abs(remaining-b.w);});
           row.push({kind:"pair",a:poolU2[0].a,b:poolU2[0].b,overlap:poolU2[0].overlap});used+=poolU2[0].w;continue;
         }
         break;
       }
+      pool=preferEdgeDepth(pool,remaining,row.length===0);
       pool=pool.slice().sort(function(a,b){return Math.abs(remaining-a.w)-Math.abs(remaining-b.w);});
       var pick=(remaining<9000)?pool[0]:pool[Math.floor(Math.random()*pool.length)];
       row.push({kind:"single",apt:pick});used+=pick.w;profileTallyAdd(pick.type);
@@ -1165,7 +1190,18 @@ function buildSideRowWithTorec(targetWidth,maxDepth,leftEnd,rightEnd){
   var seed=[];
   if(leftUnit&&leftUnit.forms)seed=seed.concat(leftUnit.forms);
   if(rightUnit&&rightUnit.forms)seed=seed.concat(rightUnit.forms);
-  var fr=flattenRow(buildRowToLength(Math.max(0,remaining),600,maxDepth,seed).row);
+  function endEdgeDepth(unit,index){
+    if(!unit||!unit.forms||!unit.forms[index])return null;
+    var f=unit.forms[index],sh=(unit.ysh&&unit.ysh[index])||0;
+    return Math.max(0,f.d-sh);
+  }
+  var edgeDepth=null;
+  if(leftUnit&&leftUnit.forms&&leftUnit.forms.length)edgeDepth={left:endEdgeDepth(leftUnit,leftUnit.forms.length-1),right:null};
+  if(rightUnit&&rightUnit.forms&&rightUnit.forms.length){
+    if(!edgeDepth)edgeDepth={left:null,right:endEdgeDepth(rightUnit,0)};
+    else edgeDepth.right=endEdgeDepth(rightUnit,0);
+  }
+  var fr=flattenRow(buildRowToLength(Math.max(0,remaining),600,maxDepth,seed,edgeDepth).row);
   // ysh — сдвиг формы вглубь этажа (к МОП) в мм, параллельный массив к forms; ненулевой только у торцевых
   // "+1.5"-квартир (см. TOREC_Y_SHIFT/torecYShift). Обычные квартиры середины ряда и партнёр торцевой пары
   // остаются на линии ряда (0).
