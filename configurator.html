@@ -252,7 +252,7 @@ html.embedded header .meta-nav{display:none}
  <div class="layout-dialog">
   <div class="layout-dialog-head">
    <div><h2 id="layoutTitle">Варианты компоновки этажа</h2><div id="layoutCount" class="layout-small">Поиск вариантов…</div></div>
-   <div class="layout-controls"><label class="layout-small" for="layoutSort">Сортировать:</label><select id="layoutSort"><option value="sale">Максимальная площадь квартир на этаже</option><option value="gross">Минимальная строительная площадь этажа</option></select><button id="layoutClose" class="layout-close" type="button" aria-label="Закрыть">✕</button></div>
+   <div class="layout-controls"><label class="layout-small" for="layoutSort">Сортировать:</label><select id="layoutSort"><option value="sale">Максимальная площадь квартир на этаже</option><option value="average">Ближе к средней площади квартиры из секции</option><option value="gross">Минимальная строительная площадь этажа</option></select><button id="layoutClose" class="layout-close" type="button" aria-label="Закрыть">✕</button></div>
   </div>
   <div class="layout-list" id="layoutScroll"><div id="layoutTiles" class="layout-grid"></div></div>
   <div class="layout-footer"><span id="layoutStatus">Показаны найденные варианты. Поиск не является математическим перебором всех комбинаций.</span><button class="layout-more" id="layoutMore" type="button">Найти ещё варианты</button></div>
@@ -395,6 +395,7 @@ var profile={"1С":25,"1К/2С":35,"3С":30,"4С":10};
 var areaRanges={"1С":[19,29],"1К/2С":[31,41],"3С":[42,74],"4С":[72,85]};
 function getAreaRange(t){return areaRanges[t]||[20,90];}
 function setAreaRange(t,mn,mx){if(!areaRanges[t])areaRanges[t]=[20,90];if(mn!==null)areaRanges[t][0]=parseInt(mn);if(mx!==null)areaRanges[t][1]=parseInt(mx);}
+var META_SECTION_CONTEXT=null;
 var constraints={aptCount:14,areaMin:550,areaMax:700,floorLen:50,floorWid:17,mopType:"",mopId:"",strict:{length:false,width:false,mopType:false,profile:false},
   // profileTypes — галочки у слайдеров "Квартирный профиль (%)" (заменили собой единый чекбокс "Доли
   // квартир"): какие типы вообще допустимы к подбору + их доли используются как веса. Пусто = без
@@ -4097,7 +4098,7 @@ function showAutoPanel(){
   });
   h+='<div id="g-depth-hint" style="display:none;font-size:9px;color:var(--text-muted);line-height:1.4;margin:5px 0">Для Г-типа: «1 сторона» — внешний фасад и внешний угол; «2 сторона» — внутренняя сторона Г-образного коридора. Учитывается на обоих плечах.</div>';
   h+='</div><div class="divider"></div>';
-  h+='<div class="pr"><div class="pk">Компоновка этажа</div>';
+  h+='<div id="massing-section-note" class="statusline" style="display:none;margin:0 0 8px"></div><div class="pr"><div class="pk">Компоновка этажа</div>';
   h+='<div style="font-size:9px;color:var(--text-muted);line-height:1.4;margin-bottom:6px">Диапазон площади действует всегда. Галочки у других параметров включают обязательные ограничения.</div>';
   h+='<div class="constr-row"><label>S от:</label><input type="number" id="area-min" min="100" max="5000" value="'+constraints.areaMin+'" step="10" onchange="saveConstraint(\'areaMin\',this.value)"> \u2014 <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap"><label>до:</label><input type="number" id="area-max" min="100" max="5000" value='+"'"+constraints.areaMax+"'"+' step="10" onchange="saveConstraint(\'areaMax\',this.value)"> м\u00b2</span></div>';
   h+='<div class="constr-row"><input type="checkbox" id="strict-length" style="margin-right:4px" '+(constraints.strict.length?"checked":"")+' onchange="toggleStrict(\'length\',this.checked)"><label>Макс. длина здания:</label><input type="number" id="floor-len" min="10" max="200" value="'+constraints.floorLen+'" onchange="saveConstraint(\'floorLen\',this.value)"> м</div>';
@@ -4524,13 +4525,13 @@ window.getMetaMassingPayload=function(){
     parts.push({kind:p.kind,name:f.name||String(p.fid),points_m:pts});
   }
   if(!isFinite(minX))throw new Error("В плане нет геометрии для передачи");
-  var tep=computeRealFloorTEP(),geo=layoutGeometry(placed),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18);
-  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,footprintArea_m2:tep.footprintArea,liftShaftArea_m2:tep.liftShaftArea,kep:Math.round(tep.kep*10000)/10000,kepPreliminary:Math.round(tep.kepPrelim*10000)/10000},boundary_m:geo&&geo.isGType&&geo.footprintContour?geo.footprintContour.map(function(p){return[Math.round(p[0])/1000,Math.round(p[1])/1000];}):null,parts:parts};
+  var tep=computeRealFloorTEP(),geo=layoutGeometry(placed),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18),mopPlaced=placed.find(function(q){return q.kind==="mop";}),mopRecord=mopPlaced?fM(mopPlaced.fid):null;
+  return{meta:{tool:"FLOOR_CONFIGURATOR",purpose:"META_MASSING_PLAN_IMPORT",created:new Date().toISOString()},bounds:{minX_m:minX/1000,minY_m:minY/1000,maxX_m:maxX/1000,maxY_m:maxY/1000,width_m:(maxX-minX)/1000,depth_m:(maxY-minY)/1000},floor:{floors:floors,apartmentsPerFloor:tep.apartments,saleArea_m2:tep.saleArea,averageApartmentArea_m2:tep.apartments?tep.saleArea/tep.apartments:0,mopArea_m2:tep.mopArea,grossArea_m2:tep.grossArea,footprintArea_m2:tep.footprintArea,liftShaftArea_m2:tep.liftShaftArea,kep:Math.round(tep.kep*10000)/10000,kepPreliminary:Math.round(tep.kepPrelim*10000)/10000,mopId:mopRecord?String(mopRecord.id):"",mopType:mopRecord?String(mopRecord.mopType||""):"",mopName:mopRecord?String(mopRecord.name||""):"",liftCount:mopRecord&&mopRecord.name?(Number((String(mopRecord.name).match(/([1-4])Л[, ]/)||[])[1])||0):0},boundary_m:geo&&geo.isGType&&geo.footprintContour?geo.footprintContour.map(function(p){return[Math.round(p[0])/1000,Math.round(p[1])/1000];}):null,parts:parts};
 };
 </script>
 <script>
 // Автоподбор: собираем независимые кандидаты, а рабочую геометрию обновляем только после выбора.
-var LAYOUT_VARIANTS=[],LAYOUT_KEYS={},LAYOUT_MAKER=null,LAYOUT_FIT=null,LAYOUT_SEARCH_TOKEN=0,LAYOUT_ATTEMPTS=0,LAYOUT_SEARCH_RUNNING=false;
+var LAYOUT_VARIANTS=[],LAYOUT_KEYS={},LAYOUT_MAKER=null,LAYOUT_FIT=null,LAYOUT_SEARCH_TOKEN=0,LAYOUT_ATTEMPTS=0,LAYOUT_SEARCH_RUNNING=false,LAYOUT_TARGET_AVERAGE=0;
 function layoutNumber(v,d){return (Number(v)||0).toFixed(d===undefined?1:d);}
 function layoutGeometry(items){
   var all=[],minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
@@ -4591,6 +4592,7 @@ function addLayoutOption(result){
   if(!result||!result.placedArr||!result.placedArr.length)return;
   if(result.frontGapViolation)return;
   var stats=layoutMetrics(result);if(!stats||!stats.apartments)return;
+  if(META_SECTION_CONTEXT){var gb=stats.geo.bounds,limX=Number(META_SECTION_CONTEXT.maxWidth_m)||0,limY=Number(META_SECTION_CONTEXT.maxDepth_m)||0,tol=Number(META_SECTION_CONTEXT.tolerance_m)||1;if((limX>0&&gb.width>limX+tol)||(limY>0&&gb.depth>limY+tol))return;}
   if(stats.sale<Number(constraints.areaMin)-0.01||stats.sale>Number(constraints.areaMax)+0.01)return;
   if(constraints.profileTypes&&constraints.profileTypes.length){
     for(var i=0;i<result.placedArr.length;i++){
@@ -4607,6 +4609,7 @@ function addLayoutOption(result){
 function renderLayoutOptions(){
   var sort=document.getElementById("layoutSort").value;
   var items=LAYOUT_VARIANTS.slice().sort(function(a,b){
+    if(sort==="average"&&LAYOUT_TARGET_AVERAGE>0)return Math.abs(a.stats.average-LAYOUT_TARGET_AVERAGE)-Math.abs(b.stats.average-LAYOUT_TARGET_AVERAGE)||b.stats.sale-a.stats.sale||a.stats.gross-b.stats.gross;
     return sort==="gross"?(a.stats.gross-b.stats.gross||b.stats.sale-a.stats.sale):(b.stats.sale-a.stats.sale||a.stats.gross-b.stats.gross);
   });
   document.getElementById("layoutCount").textContent="Найдено "+items.length+" разных компоновок · "+LAYOUT_ATTEMPTS+" попыток поиска";
@@ -4624,7 +4627,7 @@ function renderLayoutOptions(){
     html+='<span title="'+(m.geo.isGType?'S строительная = площадь пятна Г-секции − шахты лифтов':'S строительная = габарит X × Y − шахты лифтов')+'">'+(m.geo.isGType?'Строительная площадь / этаж (пятно − шахты)':'Строительная площадь / этаж (габарит − шахты)')+'</span><strong>'+layoutNumber(m.construction)+' м²</strong>';
     html+='<span title="S квартир / (площадь здания по контуру − шахты лифтов)">КЭП предварительный</span><strong>'+layoutNumber(m.kepPrelim,3)+'</strong>';
     html+='<span>Количество квартир / этаж</span><strong>'+m.apartments+'</strong>';
-    html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²</strong></div>';
+    html+='<span>Средняя площадь квартиры</span><strong>'+layoutNumber(m.average)+' м²'+(LAYOUT_TARGET_AVERAGE>0?' · цель '+layoutNumber(LAYOUT_TARGET_AVERAGE):'')+'</strong></div>';
     html+='<table class="layout-types"><thead><tr><th>Тип квартир</th><th>Площадь, от–до</th><th>Доля</th></tr></thead><tbody>';
     var order=["1С","1К/2С","3С","4С"];
     Object.keys(m.types).forEach(function(t){if(order.indexOf(t)<0)order.push(t);});
@@ -4633,7 +4636,7 @@ function renderLayoutOptions(){
     }
     html+='</tbody></table><button class="layout-choose" type="button" data-choice="'+v.id+'">Выбрать этот вариант</button></div></article>';
   }
-  document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" role="status" style="padding:22px;text-align:center">'+(LAYOUT_SEARCH_RUNNING?'Подбираю варианты по заданным ограничениям…':'Совпадающих планировок не найдено. Проверьте диапазон площади, глубину и выбранный тип квартиры.')+'</p>';
+  document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" role="status" style="padding:22px;text-align:center">'+(LAYOUT_SEARCH_RUNNING?'Подбираю варианты по заданным ограничениям…':'Совпадающих планировок не найдено. Проверьте диапазон площади, габариты секции и выбранный тип МОП.')+'</p>';
   document.querySelectorAll("#layoutTiles [data-choice]").forEach(function(button){
     button.onclick=function(){selectLayoutOption(+this.getAttribute("data-choice"));};
   });
@@ -4680,7 +4683,7 @@ function searchLayoutOptions(quantity){
 function openLayoutVariants(seed,maker,fit){
   LAYOUT_SEARCH_TOKEN++;LAYOUT_VARIANTS=[];LAYOUT_KEYS={};LAYOUT_ATTEMPTS=1;LAYOUT_SEARCH_RUNNING=true;
   LAYOUT_MAKER=maker;LAYOUT_FIT=fit;
-  document.getElementById("layoutSort").value="sale";
+  document.getElementById("layoutSort").value=LAYOUT_TARGET_AVERAGE>0?"average":"sale";
   document.getElementById("layoutScroll").scrollTop=0;
   document.getElementById("layoutChooser").classList.add("open");
   addLayoutOption(seed);renderLayoutOptions();
@@ -4691,6 +4694,28 @@ document.getElementById("layoutSort").onchange=renderLayoutOptions;
 document.getElementById("layoutClose").onclick=closeLayoutOptions;
 document.getElementById("layoutMore").onclick=function(){searchLayoutOptions(60);};
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.getElementById("layoutChooser").classList.contains("open"))closeLayoutOptions();});
+window.addEventListener("message",function(e){
+  if(e.origin!==location.origin||!e.data)return;
+  if(e.data.type==="META_SECTION_CONFIGURE"){
+    var s=e.data.payload&&e.data.payload.section;if(!s||!s.id)return;
+    META_SECTION_CONTEXT=s;LAYOUT_TARGET_AVERAGE=Number(s.averageApartmentArea_m2)||0;
+    var family=String(s.family||"");if(availableMopTypes().indexOf(family)>=0){constraints.mopType=family;constraints.strict.mopType=true;}
+    var x=Number(s.maxWidth_m)||0,y=Number(s.maxDepth_m)||0,maxDim=Math.max(x,y);
+    if(maxDim>0){constraints.strict.length=true;constraints.floorLen=Math.max(10,Math.min(50,maxDim));}
+    var sale=Number(s.saleFloor_m2)||0;if(sale>0){constraints.areaMin=Math.max(100,Math.floor(sale*.9/10)*10);constraints.areaMax=Math.max(constraints.areaMin+10,Math.ceil(sale*1.1/10)*10);}
+    if(typeof setMode==="function")setMode("auto");else if(typeof showAutoPanel==="function")showAutoPanel();
+    var note=document.getElementById("massing-section-note");if(note){note.style.display="block";note.textContent="Источник из Массинга: "+(s.label||family+"-тип")+" · габарит до "+(x?x.toFixed(1):"—")+" × "+(y?y.toFixed(1):"—")+" м · средняя площадь "+(LAYOUT_TARGET_AVERAGE?LAYOUT_TARGET_AVERAGE.toFixed(1):"—")+" м². Подбор ограничен этим контуром и максимальной длиной 50 м."+(s.warning?" "+s.warning:"");}
+    var sel=document.getElementById("cf-mop"),opts=MOPS.filter(function(m){return !family||m.mopType===family;});
+    var chosen=null;if(s.mopId)chosen=opts.find(function(m){return String(m.id)===String(s.mopId);});
+    if(!chosen&&Number(s.liftCount)>0)chosen=opts.find(function(m){return String(m.name||"").indexOf(String(s.liftCount)+"Л,")>=0;});
+    if(!chosen)chosen=opts[0];
+    if(sel&&chosen){sel.value=String(chosen.id);if(sel.value!==String(chosen.id)){var alt=Array.from(sel.options).find(function(o){return o.value===String(chosen.id);});if(alt)sel.value=alt.value;}}
+    window.parent.postMessage({type:"META_SECTION_CONFIGURATOR_RECEIVED",sectionId:s.id},location.origin);
+  }else if(e.data.type==="META_SECTION_CONFIGURE_DONE"){
+    META_SECTION_CONTEXT=null;LAYOUT_TARGET_AVERAGE=0;
+    if(typeof showAutoPanel==="function"&&mode==="auto")showAutoPanel();
+  }
+});
 </script>
 </body>
 </html>
