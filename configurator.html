@@ -995,15 +995,42 @@ function build3CEndUnit(remaining,maxDepth){
 // 4С допускается лишь когда она разрешена для текущего МОП; текущие 4С в каталоге помечены как Н-тип.
 function buildGCornerUnit(remaining,maxDepth){
   if(CURRENT_MOP_TYPE!=="Г")return null;
-  var pool=APARTMENTS.filter(function(a){
-    return(a.type==="3С"||a.type==="4С")&&a.area>=55&&!isTorec(a)&&!getPairInfo(a)&&!COMPOSITE_PENDING_IDS[a.id]&&
-      a.w<=remaining&&(!maxDepth||a.d<=maxDepth)&&depthSetAllowed(baseDepthMM(a))&&mopTypeOk(a)&&typeAllowed(a.type);
+  var base=APARTMENTS.filter(function(a){
+    return(a.type==="3С"||a.type==="4С")&&!getPairInfo(a)&&!COMPOSITE_PENDING_IDS[a.id]&&mopTypeOk(a);
   });
+  var pool=base.filter(function(a){
+    return a.area>=55&&!isTorec(a)&&a.w<=remaining&&(!maxDepth||a.d<=maxDepth)&&
+      depthSetAllowed(baseDepthMM(a))&&typeAllowed(a.type);
+  });
+  var relaxed=false;
+  if(!pool.length){
+    // Внешний угол — последнее место, где можно ослабить предпочтения состава/глубины:
+    // сначала пробуем торцевые формы, затем обычные; физическую длину кармана не превышаем.
+    pool=base.filter(function(a){return isTorec(a)&&a.w<=remaining;});
+    if(pool.length)relaxed=true;
+  }
+  if(!pool.length){
+    // Параметры типа/площади/глубины могут оставить угол пустым. Берём каталожную 3С/4С,
+    // игнорируя профиль и ограничения глубины, но не растягиваем форму и не выходим за длину.
+    pool=base.filter(function(a){return a.w<=remaining;});
+    if(pool.length)relaxed=true;
+  }
+  if(!pool.length){
+    // Если в карман физически не помещается 3С/4С, заполняем его меньшей формой из каталога
+    // с дверью к коридору. Это резерв только для внешнего угла; форма не растягивается.
+    pool=APARTMENTS.filter(function(a){return a.w<=remaining&&!getPairInfo(a)&&!COMPOSITE_PENDING_IDS[a.id]&&mopTypeOk(a);});
+    if(pool.length)relaxed=true;
+  }
   if(!pool.length)return null;
-  pool.sort(function(a,b){return b.area-a.area||b.w-a.w;});
-  var maxArea=pool[0].area,tier=pool.filter(function(a){return a.area>=maxArea-5;});
+  pool.sort(function(a,b){
+    if(relaxed&&isTorec(a)!==isTorec(b))return isTorec(a)?-1:1;
+    return b.area-a.area||b.w-a.w;
+  });
+  var topArea=pool[0].area,tier=pool.filter(function(a){
+    return (relaxed&&isTorec(pool[0])?isTorec(a):true)&&a.area>=topArea-5;
+  });
   var f=tier[Math.floor(Math.random()*tier.length)];
-  return{forms:[f],back:[0],mx:[false],ysh:[0],w:f.w};
+  return{forms:[f],back:[0],mx:[false],ysh:[isTorec(f)?torecYShift(f):0],w:f.w,relaxedCorner:relaxed};
 }
 // preferPlus15 — если true, кандидаты сперва ограничиваются формами isGenericPlus15. Без этого сортировка
 // buildTorecUnit ("ближе всего заполняет remaining, при близком результате — пара") на настоящих концах ряда
@@ -1226,7 +1253,11 @@ function buildSideRowWithTorec(targetWidth,maxDepth,leftEnd,rightEnd){
   if(leftUnit){forms=forms.concat(leftUnit.forms);back=back.concat(leftUnit.back);mx=mx.concat(leftUnit.mx);ysh=ysh.concat(leftUnit.ysh||leftUnit.forms.map(function(){return 0;}));}
   forms=forms.concat(fr.forms);back=back.concat(fr.back);mx=mx.concat(fr.forms.map(function(){return false;}));ysh=ysh.concat(fr.forms.map(function(){return 0;})); // первая форма середины стыкуется встык (back=0), как обычно
   if(rightUnit){forms=forms.concat(rightUnit.forms);back=back.concat(rightUnit.back);mx=mx.concat(rightUnit.mx);ysh=ysh.concat(rightUnit.ysh||rightUnit.forms.map(function(){return 0;}));}
-  return{forms:forms,back:back,mx:mx,ysh:ysh};
+  var fallbackCornerIndices=[];
+  if(leftUnit&&leftUnit.relaxedCorner)for(var li=0;li<leftUnit.forms.length;li++)fallbackCornerIndices.push(li);
+  var rightOffset=(leftUnit&&leftUnit.forms?leftUnit.forms.length:0)+fr.forms.length;
+  if(rightUnit&&rightUnit.relaxedCorner)for(var ri=0;ri<rightUnit.forms.length;ri++)fallbackCornerIndices.push(rightOffset+ri);
+  return{forms:forms,back:back,mx:mx,ysh:ysh,fallbackCornerIndices:fallbackCornerIndices};
 }
 
 // --- Геометрия зон МОП: bbox зоны/ЛЛУ, разрешена ли строка квартир у данного края (примыкание к коридору) ---
@@ -2114,7 +2145,7 @@ function composeFloor(){
       for(var i=0;i<rb.forms.length;i++){
         var f=rb.forms[i],bk=rb.back[i]||0;
         x-=bk;
-        var np={uid:nu(),fid:f.id,kind:"apt",x:x,y:mop.y+torecShiftedY(seg.anchorY,seg.dir,f,(rb.ysh&&rb.ysh[i])||0,rowShiftCap(seg)),rot:0,mx:!!(rb.mx&&rb.mx[i]),my:seg.dir>0,segId:seg.segId,rowAxis:"x"};
+        var np={uid:nu(),fid:f.id,kind:"apt",x:x,y:mop.y+torecShiftedY(seg.anchorY,seg.dir,f,(rb.ysh&&rb.ysh[i])||0,rowShiftCap(seg)),rot:0,mx:!!(rb.mx&&rb.mx[i]),my:seg.dir>0,segId:seg.segId,rowAxis:"x",cornerFallback:!!(rb.fallbackCornerIndices&&rb.fallbackCornerIndices.indexOf(i)>=0)};
         if(bk>0)np.pairedWithPrev=true;
         localPlaced.push(np);
         x+=f.w;
@@ -2542,6 +2573,30 @@ function mopLiftShaftMethod(m){
 function floorHasGType(items){
   return (items||[]).some(function(p){if(!p||p.kind!=="mop")return false;var m=fM(p.fid);return !!(m&&m.mopType==="Г");});
 }
+function layoutLocalPolygons(p,f){
+  if(!f||!Array.isArray(f.pts)||f.pts.length<3)return [];
+  var mt=String(f.mopType||"").toUpperCase();
+  if(!p||p.kind!=="mop"||!f.zones||(mt!=="Г"&&mt!=="G"))return [f.pts];
+  var parts=[],hasLlu=false,hasCorridor=false;
+  for(var zi=0;zi<f.zones.length;zi++){
+    var z=f.zones[zi],loops=z.loops||[];
+    if(z.mat==="llu"){
+      var outer=loops[0];if(!outer||outer.length<3)continue;
+      var minx=Infinity,miny=Infinity,maxx=-Infinity,maxy=-Infinity;
+      for(var li=0;li<outer.length;li++){minx=Math.min(minx,Number(outer[li][0]));miny=Math.min(miny,Number(outer[li][1]));maxx=Math.max(maxx,Number(outer[li][0]));maxy=Math.max(maxy,Number(outer[li][1]));}
+      if(isFinite(minx)&&maxx>minx&&maxy>miny){parts.push([[minx,miny],[maxx,miny],[maxx,maxy],[minx,maxy]]);hasLlu=true;}
+    }else if(z.mat==="corridor"){
+      for(var ci=0;ci<loops.length;ci++)if(loops[ci]&&loops[ci].length>=3){parts.push(loops[ci]);hasCorridor=true;}
+    }
+  }
+  return hasLlu&&hasCorridor?parts:[f.pts];
+}
+function layoutMopArea(f){
+  var polys=layoutLocalPolygons({kind:"mop"},f);
+  var mt=String(f&&f.mopType||"").toUpperCase();
+  if(mt==="Г"||mt==="G")return floorShapeUnion(polys.map(function(points){return{points:points};})).areaM2;
+  return f&&f.pts?polygonAreaMM(f.pts)/1e6:0;
+}
 function floorShapeUnion(shapes){
   var xs=[],ys=[],polys=[];
   function addCoord(arr,v){v=Math.round(Number(v));if(isFinite(v)&&arr.indexOf(v)<0)arr.push(v);}
@@ -2621,7 +2676,7 @@ function computeRealFloorTEP(){
     else if(placed[i].kind==="mop"){var m=fM(placed[i].fid);if(m)mops.push(m);}
   }
   var saleArea=0;for(var i=0;i<apts.length;i++)saleArea+=apts[i].area;
-  var mopArea=0;for(var i=0;i<mops.length;i++)mopArea+=polygonAreaMM(mops[i].pts)/1e6;
+  var mopArea=0;for(var i=0;i<mops.length;i++)mopArea+=layoutMopArea(mops[i]);
   var gabaritArea=floorGabaritArea(placed);if(!gabaritArea)gabaritArea=saleArea+mopArea;
   var liftShaftArea=0;for(var i=0;i<mops.length;i++)liftShaftArea+=mopLiftShaftArea(mops[i]);
   var liftShaftMethod=mops.map(mopLiftShaftMethod).join("; ");
@@ -4521,8 +4576,11 @@ window.getMetaMassingPayload=function(){
   var parts=[],minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   for(var i=0;i<placed.length;i++){
     var p=placed[i],f=fF(p);if(!f||!f.pts||!f.pts.length)continue;
-    var pts=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my).map(function(q){var x=q[0]+p.x,y=q[1]+p.y;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);return[Math.round(x)/1000,Math.round(y)/1000];});
-    parts.push({kind:p.kind,name:f.name||String(p.fid),points_m:pts});
+    var polys=layoutLocalPolygons(p,f);
+    for(var gi=0;gi<polys.length;gi++){
+      var pts=transformPts(polys[gi],f.w,f.d,p.rot||0,!!p.mx,!!p.my).map(function(q){var x=q[0]+p.x,y=q[1]+p.y;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y);return[Math.round(x)/1000,Math.round(y)/1000];});
+      parts.push({kind:p.kind,name:f.name||String(p.fid),points_m:pts});
+    }
   }
   if(!isFinite(minX))throw new Error("В плане нет геометрии для передачи");
   var tep=computeRealFloorTEP(),geo=layoutGeometry(placed),floors=parseInt((document.getElementById("floors-inp")||{}).value)||((lastFit&&lastFit.floors)||18),mopPlaced=placed.find(function(q){return q.kind==="mop";}),mopRecord=mopPlaced?fM(mopPlaced.fid):null;
@@ -4537,12 +4595,15 @@ function layoutGeometry(items){
   var all=[],minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
   for(var i=0;i<items.length;i++){
     var p=items[i],f=fF(p);if(!f||!f.pts||!f.pts.length)continue;
-    var points=transformPts(f.pts,f.w,f.d,p.rot||0,!!p.mx,!!p.my).map(function(q){
-      var x=q[0]+p.x,y=q[1]+p.y;
-      minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
-      return [x,y];
-    });
-    all.push({kind:p.kind,name:f.name||"",type:f.type||"",points:points});
+    var polys=layoutLocalPolygons(p,f);
+    for(var pi=0;pi<polys.length;pi++){
+      var points=transformPts(polys[pi],f.w,f.d,p.rot||0,!!p.mx,!!p.my).map(function(q){
+        var x=q[0]+p.x,y=q[1]+p.y;
+        minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+        return [x,y];
+      });
+      all.push({kind:p.kind,name:f.name||"",type:f.type||"",points:points});
+    }
   }
   if(!isFinite(minX))return null;
   var isG=floorHasGType(items),boxArea=((maxX-minX)*(maxY-minY))/1e6,union=isG?floorShapeUnion(all):null;
@@ -4557,7 +4618,7 @@ function layoutMetrics(result){
       sale+=a;mc++;
       if(!types[t])types[t]={count:0,min:Infinity,max:-Infinity};
       types[t].count++;types[t].min=Math.min(types[t].min,a);types[t].max=Math.max(types[t].max,a);
-    }else if(p.kind==="mop"&&f.pts){mop+=polygonAreaMM(f.pts)/1e6;lift+=mopLiftShaftArea(f);liftMethods.push(mopLiftShaftMethod(f));}
+    }else if(p.kind==="mop"&&f.pts){mop+=layoutMopArea(f);lift+=mopLiftShaftArea(f);liftMethods.push(mopLiftShaftMethod(f));}
   }
   var geo=layoutGeometry(items);if(!geo)return null;
   var gabarit=geo.footprintArea,construction=Math.max(0,gabarit-lift);
@@ -4634,7 +4695,9 @@ function renderLayoutOptions(){
     for(var j=0;j<order.length;j++){var t=order[j],d=m.types[t];if(!d)continue;
       html+='<tr><td>'+escHtml(t)+'</td><td>'+layoutNumber(d.min)+'–'+layoutNumber(d.max)+' м²</td><td>'+layoutNumber(d.count/m.apartments*100,0)+'% ('+d.count+')</td></tr>';
     }
-    html+='</tbody></table><button class="layout-choose" type="button" data-choice="'+v.id+'">Выбрать этот вариант</button></div></article>';
+    html+='</tbody></table>';
+    if(v.result.placedArr.some(function(p){return p.cornerFallback;}))html+='<div class="layout-small" style="color:#9a5b00;margin:6px 0">Во внешнем углу выбран каталожный модуль с отступлением от заданных параметров.</div>';
+    html+='<button class="layout-choose" type="button" data-choice="'+v.id+'">Выбрать этот вариант</button></div></article>';
   }
   document.getElementById("layoutTiles").innerHTML=html||'<p class="layout-small" role="status" style="padding:22px;text-align:center">'+(LAYOUT_SEARCH_RUNNING?'Подбираю варианты по заданным ограничениям…':'Совпадающих планировок не найдено. Проверьте диапазон площади, габариты секции и выбранный тип МОП.')+'</p>';
   document.querySelectorAll("#layoutTiles [data-choice]").forEach(function(button){
