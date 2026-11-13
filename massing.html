@@ -1515,7 +1515,7 @@ $('underlayRemoveBtn').addEventListener('click',()=>{if(!state.underlay)return;c
  obj3DHeight = function(o,floorH){ if(o.type==='RAMP') return Number(o.rampHeight)||4; if(o.kind==='building')return Math.max(1,(Number(o.floors)||1)*floorH); if(o.kind==='stylobat')return Math.max(1,(Number(o.levels)||1)*3.6); if(o.kind==='parking')return o.type==='P_SURF'?.18:Math.max(1,(Number(o.levels)||1)*3.2); if(o.kind==='road'||o.kind==='land')return .16; return .12 };
  shapeColors = function(o){ if(o.type==='RAMP') return {fill:'#e4d8c3',stroke:'#8e7656'}; if(o.kind==='building')return{fill:'#ffffff',stroke:'#b3b3b3'};if(o.type==='P_SURF'||o.kind==='road')return{fill:'#cac3bd',stroke:'#77716d'};if(o.type==='GREEN'||o.type==='YARD')return{fill:'#b0c17d',stroke:'#727e51'};if(o.type==='PLAY')return{fill:'#bb989e',stroke:'#795f64'};const t=LIB[o.type]||{}; return {fill:o.fill||t.fill||'#ddd',stroke:o.stroke||t.stroke||'#666'} };
  
- const ROAD_PARK_CLEAR=10, ROAD_PARK_JUNCTION_CLEAR=5, ROAD_GREEN_BREAK_EVERY=10, ROAD_GREEN_BREAK_WIDTH=2.5;
+ const ROAD_PARK_CLEAR=10, ROAD_PARK_JUNCTION_CLEAR=10, ROAD_GREEN_BREAK_EVERY=10, ROAD_GREEN_BREAK_WIDTH=2.5;
  const segProject = (p,a,b)=>{ const dx=b[0]-a[0],dy=b[1]-a[1],len2=dx*dx+dy*dy||1; const t=((p[0]-a[0])*dx+(p[1]-a[1])*dy)/len2; return {t,dist:Math.hypot((a[0]+dx*t)-p[0],(a[1]+dy*t)-p[1])}; };
  const roadOffsetPolyline=window.roadOffsetPolyline=(pts,offset)=>{ if(!pts||pts.length<2) return pts||[]; const normals=[]; for(let i=1;i<pts.length;i++){ const dx=pts[i][0]-pts[i-1][0],dy=pts[i][1]-pts[i-1][1],len=Math.hypot(dx,dy)||1; normals.push([-dy/len,dx/len]); }
   const out=[]; for(let i=0;i<pts.length;i++){ if(i===0){ out.push([pts[i][0]+normals[0][0]*offset,pts[i][1]+normals[0][1]*offset]); continue; } if(i===pts.length-1){ const n=normals[normals.length-1]; out.push([pts[i][0]+n[0]*offset,pts[i][1]+n[1]*offset]); continue; } const n1=normals[i-1],n2=normals[i],m=[n1[0]+n2[0],n1[1]+n2[1]]; let ml=Math.hypot(m[0],m[1]); if(ml<1e-6){ out.push([pts[i][0]+n2[0]*offset,pts[i][1]+n2[1]*offset]); continue; } m[0]/=ml;m[1]/=ml; const d=Math.max(.35,Math.abs(m[0]*n2[0]+m[1]*n2[1])); const sc=offset/d; out.push([pts[i][0]+m[0]*sc,pts[i][1]+m[1]*sc]); } return out; };
@@ -1733,6 +1733,23 @@ function junctionAxesPair21(node){
     const P1=[A[0]-su*k*R*u[0],A[1]-su*k*R*u[1]],P2=[B[0]-sv*k*R*v[0],B[1]-sv*k*R*v[1]];
     return {points:bezierPoints21(A,P1,P2,B,12),w,type};
   }
+  function junctionSidewalkApron21(node,uAxis,vAxis,su,sv){
+    const u=uAxis.u,v=vAxis.u,p=node.p,halfU=(Number(uAxis.road.road?.laneWidth)||6)/2,halfV=(Number(vAxis.road.road?.laneWidth)||6)/2,R=Math.min(Number(uAxis.road.road?.radius)||6,Number(vAxis.road.road?.radius)||6);
+    const du=junctionSideDefs21(uAxis,[sv*v[0],sv*v[1]]).find(d=>d.item.type==='walk'),dv=junctionSideDefs21(vAxis,[su*u[0],su*u[1]]).find(d=>d.item.type==='walk');
+    if(!du||!dv)return null;
+    const dU=du.mid+du.item.w/2,dV=dv.mid+dv.item.w/2,k=.55228475,inner=junctionCorner21(node,uAxis,vAxis,su,sv);
+    const A=[p[0]+su*(halfV+R+dU)*u[0]+sv*(halfU+dV)*v[0],p[1]+su*(halfV+R+dU)*u[1]+sv*(halfU+dV)*v[1]];
+    const B=[p[0]+su*(halfV+dU)*u[0]+sv*(halfU+R+dV)*v[0],p[1]+su*(halfV+dU)*u[1]+sv*(halfU+R+dV)*v[1]];
+    const P1=[A[0]-su*k*R*u[0],A[1]-su*k*R*u[1]],P2=[B[0]-sv*k*R*v[0],B[1]-sv*k*R*v[1]];
+    const inside=bezierPoints21(inner.A,inner.P1,inner.P2,inner.B,12),outside=bezierPoints21(A,P1,P2,B,12).reverse();
+    return inside.concat(outside);
+  }
+  function drawJunctionSidewalkFill21(parent,nodes){
+    for(const node of nodes)for(const pair of junctionAxesPair21(node))for(const su of [-1,1])for(const sv of [-1,1]){
+      const points=junctionSidewalkApron21(node,pair.a,pair.b,su,sv);if(!points)continue;
+      const fill=document.createElementNS(ns,'polygon');fill.setAttribute('points',points.map(p=>p.join(',')).join(' '));fill.setAttribute('fill',roadStripColor('walk'));fill.setAttribute('stroke','none');fill.setAttribute('pointer-events','none');parent.appendChild(fill);
+    }
+  }
   function nearestPolylineDistance21(pts,p){
     let best={dist:Infinity,s:0,seg:0,t:0},acc=0;
     for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]),q=segProject21(p,a,b),t=Math.max(0,Math.min(1,q.t)),x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t,d=Math.hypot(x-p[0],y-p[1]);if(d<best.dist)best={dist:d,s:acc+t*len,seg:i-1,t};acc+=len}
@@ -1781,12 +1798,12 @@ function junctionAxesPair21(node){
     }
   }
   function drawJunctionMarkings21(parent,nodes){
-    const stripeN=9,stripeW=.45,pitch=.8,halfZebra=((stripeN-1)*pitch+stripeW)/2;
+    const stripeN=9,stripeW=.45,pitch=.8;
     for(const node of nodes)for(const pair of junctionAxesPair21(node))for(const axis of [pair.a,pair.b]){
-      const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(axis.road.road?.laneWidth)||6)/2+1.5;
-      for(const c of junctionApproaches21(node,axis,crossD,halfZebra)){
-        const u=c.axis,n=[-u[1],u[0]],span=Math.max(4,c.laneW-.35);
-        for(let k=0;k<stripeN;k++){const along=(k-(stripeN-1)/2)*pitch,cx=c.center[0]+u[0]*along,cy=c.center[1]+u[1]*along,hx=u[0]*stripeW/2,hy=u[1]*stripeW/2,wx=n[0]*span/2,wy=n[1]*span/2,poly=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],r=document.createElementNS(ns,'polygon');r.setAttribute('points',poly.map(p=>p.join(',')).join(' '));r.setAttribute('fill','#fff');parent.appendChild(r)}
+      const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(other.road.road?.laneWidth)||6)/2+1.5,span=Math.max(4,(Number(axis.road.road?.laneWidth)||6)-.35),acrossPitch=Math.min(pitch,(span-stripeW)/(stripeN-1));
+      for(const c of junctionApproaches21(node,axis,crossD,span/2)){
+        const u=c.axis,n=[-u[1],u[0]];
+        for(let k=0;k<stripeN;k++){const across=(k-(stripeN-1)/2)*acrossPitch,cx=c.center[0]+n[0]*across,cy=c.center[1]+n[1]*across,hx=u[0]*span/2,hy=u[1]*span/2,wx=n[0]*stripeW/2,wy=n[1]*stripeW/2,poly=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],r=document.createElementNS(ns,'polygon');r.setAttribute('points',poly.map(p=>p.join(',')).join(' '));r.setAttribute('fill','#fff');parent.appendChild(r)}
       }
     }
   }
@@ -1800,9 +1817,10 @@ function junctionAxesPair21(node){
   }
   function attachRoadInteraction21(parent,o){const hit=document.createElementNS(ns,'path');hit.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));hit.setAttribute('fill','none');hit.setAttribute('stroke','rgba(0,0,0,0)');hit.setAttribute('stroke-width',Math.max(12,roadTotalWidth(o)));hit.style.pointerEvents='stroke';hit.dataset.id=o.id;hit.addEventListener('pointerdown',startDrag);hit.addEventListener('click',e=>{if(siteDraw||underlayCalib||rulerMode||roadDraw)return;e.stopPropagation();state.selected=o.id;state.calloutId=o.id;state.calloutPos={x:e.clientX,y:e.clientY};state.calloutOffset=null;loadRoadConfigToUI(o);renderAll()});parent.appendChild(hit);const st=roadParkingStats(o),pts=o.roadPoints||[],mid=pts[Math.floor((pts.length-1)/2)]||[0,0],tx=document.createElementNS(ns,'text');tx.setAttribute('x',mid[0]);tx.setAttribute('y',mid[1]-8);tx.setAttribute('text-anchor','middle');tx.setAttribute('class','roadLabel');tx.textContent=`Проезд ${fmt(o.road?.laneWidth||6,1)} м · ${fmt(st.total)} ММ · L ${fmt(st.length,1)} м`;parent.appendChild(tx);if(o.id===state.selected)pts.forEach((p,i)=>{const h=document.createElementNS(ns,'circle');h.setAttribute('cx',p[0]);h.setAttribute('cy',p[1]);h.setAttribute('r',4);h.setAttribute('class','roadNode');h.addEventListener('pointerdown',e=>startRoadVertexDrag(e,o.id,i));parent.appendChild(h)})}
   function renderRoadNetwork21(roads){
-    const groups={green:document.createElementNS(ns,'g'),parking:document.createElementNS(ns,'g'),walk:document.createElementNS(ns,'g'),lane:document.createElementNS(ns,'g'),curb:document.createElementNS(ns,'g'),mark:document.createElementNS(ns,'g'),ctrl:document.createElementNS(ns,'g')};
+    const groups={sidewalkFill:document.createElementNS(ns,'g'),green:document.createElementNS(ns,'g'),parking:document.createElementNS(ns,'g'),walk:document.createElementNS(ns,'g'),lane:document.createElementNS(ns,'g'),curb:document.createElementNS(ns,'g'),mark:document.createElementNS(ns,'g'),ctrl:document.createElementNS(ns,'g')};
     Object.values(groups).forEach(g=>objLayer.appendChild(g));
     const junctions=roadJunctionNodes21(roads),byRoad=new Map();
+    drawJunctionSidewalkFill21(groups.sidewalkFill,junctions);
     for(const node of junctions)for(const axis of node.axes)for(const arm of axis.arms){if(!byRoad.has(arm.road.id))byRoad.set(arm.road.id,[]);byRoad.get(arm.road.id).push(node.p)}
     for(const o of roads){syncRoadBounds(o);const baseTransform=`translate(${o.x} ${o.y})`,gg={};for(const [name,g] of Object.entries(groups)){gg[name]=document.createElementNS(ns,'g');gg[name].setAttribute('transform',baseTransform);groups[name].appendChild(gg[name])}for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);defs.filter(d=>d.item.type==='green').forEach(d=>drawBand21(gg.green,o,d));drawParking21(gg.parking,o,sideName);defs.filter(d=>d.item.type==='bike'||d.item.type==='walk').forEach(d=>drawBand21(gg.walk,o,d))}drawLane21(gg.lane,o);drawMarkings21(gg.mark,o,byRoad.get(o.id)||[]);attachRoadInteraction21(gg.ctrl,o)}
     drawJunctionAsphalt21(groups.lane,junctions);drawJunctionCornerBands21(groups.curb,junctions);drawJunctionMarkings21(groups.mark,junctions);
@@ -1843,8 +1861,20 @@ function junctionAxesPair21(node){
     for(const n of nodes){if(!n.axes.some(a=>a.arms.some(x=>x.road.id===o.id)))continue;const q=nearestPolylineDistance21(pts,n.p);if(q.dist<1)ranges.push([Math.max(0,q.s-gap),Math.min(total,q.s+gap)])}
     for(let d=0;d<total;d+=8){const end=Math.min(total,d+3.2),cuts=ranges.filter(g=>g[0]<end&&g[1]>d).sort((a,b)=>a[0]-b[0]);let cur=d;for(const g of cuts){if(g[0]>cur)for(let s=cur;s<Math.min(end,g[0]);s+=.9){const e=Math.min(Math.min(end,g[0]),s+.9);addSeg3D21(t,pointAtDistance21(pts,s),pointAtDistance21(pts,e),.14,0xffffff,(Number(o.roadLevel)||0)+.218,.018,o.id)}cur=Math.max(cur,g[1])}if(cur<end)for(let s=cur;s<end;s+=.9){const e=Math.min(end,s+.9);addSeg3D21(t,pointAtDistance21(pts,s),pointAtDistance21(pts,e),.14,0xffffff,(Number(o.roadLevel)||0)+.218,.018,o.id)}}
   }
+  function drawJunctionSidewalkFill3D21(t,nodes){
+    for(const node of nodes)for(const pair of junctionAxesPair21(node)){
+      const base=Math.max(Number(pair.a.road.roadLevel)||0,Number(pair.b.road.roadLevel)||0);
+      if(Math.abs((Number(pair.a.road.roadLevel)||0)-(Number(pair.b.road.roadLevel)||0))>.15)continue;
+      for(const su of [-1,1])for(const sv of [-1,1]){
+        const points=junctionSidewalkApron21(node,pair.a,pair.b,su,sv);if(!points)continue;
+        const shape=new THREE.Shape(),to2=p=>[p[0],-p[1]];shape.moveTo(...to2(points[0]));for(let i=1;i<points.length;i++)shape.lineTo(...to2(points[i]));shape.closePath();
+        const geo=new THREE.ShapeGeometry(shape),mat=new THREE.MeshBasicMaterial({color:srgb21(0xbb989e),side:THREE.DoubleSide,toneMapped:false}),mesh=new THREE.Mesh(geo,mat);mesh.rotation.x=-Math.PI/2;mesh.position.y=base+.008;mesh.userData.objId=pair.a.road.id;t.group.add(mesh);
+      }
+    }
+  }
   function addRoadJunctions3D21(t,roads){
     const nodes=roadJunctionNodes21(roads);
+    drawJunctionSidewalkFill3D21(t,nodes);
     for(const node of nodes)for(const pair of junctionAxesPair21(node)){
       const base=Math.max(Number(pair.a.road.roadLevel)||0,Number(pair.b.road.roadLevel)||0);
       if(Math.abs((Number(pair.a.road.roadLevel)||0)-(Number(pair.b.road.roadLevel)||0))>.15)continue;
@@ -1859,10 +1889,10 @@ function junctionAxesPair21(node){
         const color=type==='green'?0xb0c17d:0xbb989e,y=type==='green'?base+.015:base+.035,h=type==='green'?.07:type==='walk'?.12:.09;
         addPathStrip3D21(t,arc.points,arc.w,color,y,h,pair.a.road.id);
       }
-      const stripeN=9,stripeW=.45,pitch=.8,halfZebra=((stripeN-1)*pitch+stripeW)/2;
-      for(const axis of [pair.a,pair.b]){const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(axis.road.road?.laneWidth)||6)/2+1.5;for(const c of junctionApproaches21(node,axis,crossD,halfZebra)){
-        const u=c.axis,n=[-u[1],u[0]],span=Math.max(4,c.laneW-.35),markY=base+.221;
-        for(let k=0;k<stripeN;k++){const along=(k-(stripeN-1)/2)*pitch,cx=c.center[0]+u[0]*along,cy=c.center[1]+u[1]*along,half=stripeW/2,a=[cx-u[0]*half,cy-u[1]*half],b=[cx+u[0]*half,cy+u[1]*half];addSeg3D21(t,a,b,span,0xffffff,markY,.02,c.road.id)}
+      const stripeN=9,stripeW=.45,pitch=.8;
+      for(const axis of [pair.a,pair.b]){const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(other.road.road?.laneWidth)||6)/2+1.5,span=Math.max(4,(Number(axis.road.road?.laneWidth)||6)-.35),acrossPitch=Math.min(pitch,(span-stripeW)/(stripeN-1));for(const c of junctionApproaches21(node,axis,crossD,span/2)){
+        const u=c.axis,n=[-u[1],u[0]],markY=base+.221;
+        for(let k=0;k<stripeN;k++){const across=(k-(stripeN-1)/2)*acrossPitch,cx=c.center[0]+n[0]*across,cy=c.center[1]+n[1]*across,a=[cx-u[0]*span/2,cy-u[1]*span/2],b=[cx+u[0]*span/2,cy+u[1]*span/2];addSeg3D21(t,a,b,stripeW,0xffffff,markY,.02,c.road.id)}
       }}
     }
     for(const o of roads)addRoadCenterMarkings3D21(t,o,nodes);
