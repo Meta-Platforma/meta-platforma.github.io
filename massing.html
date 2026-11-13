@@ -1670,13 +1670,142 @@ const roadParkingCentersOnSegment=window.roadParkingCentersOnSegment=(o,si,key)=
   function bandDefs21(o,sideName){const sign=sideName==='left'?-1:1,items=roadCrossSectionItems(o.road?.[sideName]),defs=roadOffsetSegments(o,sign,items);return defs.map(d=>({...d,sign}))}
   function drawBand21(parent,o,def){const pts=o.roadPoints||[],off=offsetPolyline21(pts,def.sign*def.mid);if(off.length<2)return;const d=roadRoundedPathD(off,Number(o.road?.radius)||6),edge=def.item.type==='green'?'#43854b':def.item.type==='bike'?'#805361':'#a7a39e';const outline=document.createElementNS(ns,'path');outline.setAttribute('d',d);outline.setAttribute('fill','none');outline.setAttribute('stroke',edge);outline.setAttribute('stroke-width',def.item.w+.5);outline.setAttribute('stroke-linecap','round');outline.setAttribute('stroke-linejoin','round');outline.setAttribute('class','roadSideStrip roadSideStripOutline');parent.appendChild(outline);const p=document.createElementNS(ns,'path');p.setAttribute('d',d);p.setAttribute('fill','none');p.setAttribute('stroke',roadStripColor(def.item.type));p.setAttribute('stroke-width',def.item.w);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.setAttribute('class',`roadSideStrip roadSideStrip-${def.item.type}`);parent.appendChild(p)}
   function drawParking21(parent,o,sideName){const pts=o.roadPoints||[],sign=sideName==='left'?-1:1,defs=bandDefs21(o,sideName),park=defs.find(d=>d.item.type==='parking');if(!park)return;for(let si=0;si<pts.length-1;si++){const a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.1)continue;const nx=-dy/len*sign,ny=dx/len*sign,key=park.item.key,layout=window.roadParkingLayoutOnSegment(o,si,key),depth=key==='perp'?5.3:2.5,along=key==='perp'?2.5:6,ux=dx/len,uy=dy/len;const drawRect=(d,w,cls,fill,stroke)=>{const tt=d/len,cx=a[0]+dx*tt+nx*park.mid,cy=a[1]+dy*tt+ny*park.mid,hx=ux*w/2,hy=uy*w/2,wx=nx*depth/2,wy=ny*depth/2,rect=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],rp=document.createElementNS(ns,'polygon');rp.setAttribute('points',rect.map(q=>q.join(',')).join(' '));rp.setAttribute('class',cls);if(fill)rp.setAttribute('fill',fill);if(stroke)rp.setAttribute('stroke',stroke);parent.appendChild(rp)};for(const d of layout.centers)drawRect(d,along,'roadParkingSlot');for(const gap of layout.greenGaps)drawRect((gap[0]+gap[1])/2,gap[1]-gap[0],'roadParkingGreenGap','#b0c17d','#727e51')}}
-  function drawLane21(parent,o){const p=document.createElementNS(ns,'path');p.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));p.setAttribute('fill','none');p.setAttribute('stroke','#cac3bd');p.setAttribute('stroke-width',Number(o.road?.laneWidth)||6);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.dataset.id=o.id;parent.appendChild(p);const lane=(Number(o.road?.laneWidth)||6)/2,R=Number(o.road?.radius)||6;for(const w of roadIntersections(o)){const c=document.createElementNS(ns,'circle');c.setAttribute('cx',w[0]-o.x);c.setAttribute('cy',w[1]-o.y);c.setAttribute('r',R+lane);c.setAttribute('fill','#cac3bd');parent.appendChild(c)}}
-  function drawMarkings21(parent,o){const center=document.createElementNS(ns,'path');center.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));center.setAttribute('fill','none');center.setAttribute('stroke','#f7fafb');center.setAttribute('stroke-width','.36');center.setAttribute('stroke-dasharray','5 4');parent.appendChild(center);const locInts=roadIntersections(o).map(p=>[p[0]-o.x,p[1]-o.y]),pts=o.roadPoints||[],laneW=Number(o.road?.laneWidth)||6;for(let si=0;si<pts.length-1;si++){const a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<5)continue;const ux=dx/len,uy=dy/len,nx=-uy,ny=ux;for(const ip of locInts){const q=segProject21(ip,a,b);if(q.t<0||q.t>1||q.dist>.8)continue;const d=q.t*len+(q.t<.5?3.2:-3.2),stripeN=5,step=.7,sw=.34,span=laneW+.8;for(let k=-2;k<=2;k++){const s=d+k*step;if(s<1||s>len-1)continue;const cx=a[0]+ux*s,cy=a[1]+uy*s,hx=ux*sw/2,hy=uy*sw/2,wx=nx*span/2,wy=ny*span/2,poly=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],rp=document.createElementNS(ns,'polygon');rp.setAttribute('points',poly.map(v=>v.join(',')).join(' '));rp.setAttribute('fill','#fff');parent.appendChild(rp)}}}}
+function junctionAxesPair21(node){
+    const pairs=[];
+    for(let i=0;i<node.axes.length;i++)for(let j=i+1;j<node.axes.length;j++){
+      const a=node.axes[i],b=node.axes[j],dot=a.u[0]*b.u[0]+a.u[1]*b.u[1];
+      if(Math.abs(dot)<.25)pairs.push({a,b,dot});
+    }
+    return pairs;
+  }
+  function roadJunctionNodes21(roads){
+    const nodes=[];
+    const canonical=u=>u[0]<-1e-8||Math.abs(u[0])<1e-8&&u[1]<0?[-u[0],-u[1]]:u.slice();
+    const add=(p,road,si,dir)=>{
+      let node=nodes.find(n=>Math.hypot(n.p[0]-p[0],n.p[1]-p[1])<.5);
+      if(!node){node={p:p.slice(),axes:[]};nodes.push(node)}
+      const u=canonical(dir),len=Math.hypot(dir[0],dir[1])||1;u[0]/=len;u[1]/=len;
+      let axis=node.axes.find(a=>Math.abs(a.u[0]*u[1]-a.u[1]*u[0])<.02);
+      if(!axis){axis={u,arms:[],road,si,dir:dir.slice(),segLen:0};node.axes.push(axis)}
+      const pts=roadWorldPoints(road),segLen=Math.hypot(pts[si+1][0]-pts[si][0],pts[si+1][1]-pts[si][1]);
+      if(segLen>axis.segLen){axis.road=road;axis.si=si;axis.dir=dir.slice();axis.segLen=segLen}
+      if(!axis.arms.some(x=>x.road.id===road.id&&x.si===si))axis.arms.push({road,si,dir:dir.slice()});
+    };
+    for(let i=0;i<roads.length;i++)for(let j=i+1;j<roads.length;j++){
+      const ra=roads[i],rb=roads[j],A=roadWorldPoints(ra),B=roadWorldPoints(rb);
+      for(let si=1;si<A.length;si++)for(let sj=1;sj<B.length;sj++){
+        const p=segmentIntersection(A[si-1],A[si],B[sj-1],B[sj]);if(!p)continue;
+        add(p,ra,si-1,[A[si][0]-A[si-1][0],A[si][1]-A[si-1][1]]);
+        add(p,rb,sj-1,[B[sj][0]-B[sj-1][0],B[sj][1]-B[sj-1][1]]);
+      }
+    }
+    return nodes.filter(n=>junctionAxesPair21(n).length);
+  }
+  function bezierPoints21(A,P1,P2,B,steps=12){
+    const out=[A.slice()];
+    for(let i=1;i<=steps;i++){const t=i/steps,u=1-t;out.push([u*u*u*A[0]+3*u*u*t*P1[0]+3*u*t*t*P2[0]+t*t*t*B[0],u*u*u*A[1]+3*u*u*t*P1[1]+3*u*t*t*P2[1]+t*t*t*B[1]])}
+    return out;
+  }
+  function junctionCorner21(node,uAxis,vAxis,su,sv){
+    const u=uAxis.u,v=vAxis.u,halfU=(Number(uAxis.road.road?.laneWidth)||6)/2,halfV=(Number(vAxis.road.road?.laneWidth)||6)/2,R=Math.min(Number(uAxis.road.road?.radius)||6,Number(vAxis.road.road?.radius)||6),p=node.p,k=.55228475;
+    const corner=[p[0]+su*halfV*u[0]+sv*halfU*v[0],p[1]+su*halfV*u[1]+sv*halfU*v[1]];
+    const A=[p[0]+su*(halfV+R)*u[0]+sv*halfU*v[0],p[1]+su*(halfV+R)*u[1]+sv*halfU*v[1]];
+    const B=[p[0]+su*halfV*u[0]+sv*(halfU+R)*v[0],p[1]+su*halfV*u[1]+sv*(halfU+R)*v[1]];
+    const P1=[A[0]-su*k*R*u[0],A[1]-su*k*R*u[1]],P2=[B[0]-sv*k*R*v[0],B[1]-sv*k*R*v[1]];
+    return {corner,A,B,P1,P2,R,halfU,halfV,u,v,su,sv,points:[corner,A,...bezierPoints21(A,P1,P2,B,12).slice(1),corner]};
+  }
+  function junctionSideDefs21(axis,toward){
+    const road=axis.road,pts=roadWorldPoints(road),si=Math.min(axis.si,pts.length-2),a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;
+    let best=null;
+    for(const sideName of ['left','right']){
+      const sign=sideName==='left'?-1:1,nx=-dy/len*sign,ny=dx/len*sign,score=nx*toward[0]+ny*toward[1];
+      if(!best||score>best.score)best={sideName,score,defs:bandDefs21(road,sideName)};
+    }
+    return best?.score>.5?best.defs:[];
+  }
+  function junctionBandArc21(node,uAxis,vAxis,su,sv,type){
+    const u=uAxis.u,v=vAxis.u,p=node.p,halfU=(Number(uAxis.road.road?.laneWidth)||6)/2,halfV=(Number(vAxis.road.road?.laneWidth)||6)/2,R=Math.min(Number(uAxis.road.road?.radius)||6,Number(vAxis.road.road?.radius)||6);
+    const du=junctionSideDefs21(uAxis,[sv*v[0],sv*v[1]]).find(d=>d.item.type===type),dv=junctionSideDefs21(vAxis,[su*u[0],su*u[1]]).find(d=>d.item.type===type);
+    if(!du||!dv)return null;
+    const d=(du.mid+dv.mid)/2,w=(du.item.w+dv.item.w)/2,k=.55228475;
+    const A=[p[0]+su*(halfV+R+d)*u[0]+sv*(halfU+d)*v[0],p[1]+su*(halfV+R+d)*u[1]+sv*(halfU+d)*v[1]];
+    const B=[p[0]+su*(halfV+d)*u[0]+sv*(halfU+R+d)*v[0],p[1]+su*(halfV+d)*u[1]+sv*(halfU+R+d)*v[1]];
+    const P1=[A[0]-su*k*R*u[0],A[1]-su*k*R*u[1]],P2=[B[0]-sv*k*R*v[0],B[1]-sv*k*R*v[1]];
+    return {points:bezierPoints21(A,P1,P2,B,12),w,type};
+  }
+  function nearestPolylineDistance21(pts,p){
+    let best={dist:Infinity,s:0,seg:0,t:0},acc=0;
+    for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]),q=segProject21(p,a,b),t=Math.max(0,Math.min(1,q.t)),x=a[0]+(b[0]-a[0])*t,y=a[1]+(b[1]-a[1])*t,d=Math.hypot(x-p[0],y-p[1]);if(d<best.dist)best={dist:d,s:acc+t*len,seg:i-1,t};acc+=len}
+    return best;
+  }
+  function polylineLength21(pts){let total=0;for(let i=1;i<pts.length;i++)total+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);return total}
+  function pointAtDistance21(pts,d){
+    if(!pts.length)return [0,0];if(d<=0)return pts[0].slice();let acc=0;
+    for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(acc+len>=d){const t=(d-acc)/(len||1);return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]}acc+=len}
+    return pts[pts.length-1].slice();
+  }
+  function slicePolyline21(pts,start,end){
+    const total=polylineLength21(pts);start=Math.max(0,Math.min(total,start));end=Math.max(start,Math.min(total,end));if(end-start<.01)return [];
+    const out=[pointAtDistance21(pts,start)];let acc=0;
+    for(let i=1;i<pts.length;i++){acc+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);if(acc>start+.01&&acc<end-.01)out.push(pts[i].slice())}
+    out.push(pointAtDistance21(pts,end));return out;
+  }
+  function junctionApproaches21(node,axis,crossD,halfZebra){
+    const out=[];
+    for(const sign of [-1,1]){
+      const candidates=[];
+      for(const arm of axis.arms){
+        const road=arm.road,pts=roundedSample21(roadWorldPoints(road),Number(road.road?.radius)||6,6),near=nearestPolylineDistance21(pts,node.p),total=polylineLength21(pts);
+        if(near.dist>.8||near.seg>=pts.length-1)continue;
+        const a=pts[near.seg],b=pts[near.seg+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1,tangent=[dx/len,dy/len],forward=(tangent[0]*axis.u[0]+tangent[1]*axis.u[1])*sign>0?1:-1,s=near.s+forward*crossD;
+        if(s-halfZebra<0||s+halfZebra>total)continue;
+        candidates.push({road,s,center:[node.p[0]+axis.u[0]*sign*crossD,node.p[1]+axis.u[1]*sign*crossD]});
+      }
+      if(candidates.length){const c=candidates.sort((a,b)=>polylineLength21(roadWorldPoints(b.road))-polylineLength21(roadWorldPoints(a.road)))[0];out.push({axis:axis.u,road:c.road,center:c.center,sign,laneW:Number(c.road.road?.laneWidth)||6,base:Number(c.road.roadLevel)||0})}
+    }
+    return out;
+  }
+  function drawJunctionAsphalt21(parent,nodes){
+    for(const node of nodes)for(const pair of junctionAxesPair21(node))for(const su of [-1,1])for(const sv of [-1,1]){
+      const g=junctionCorner21(node,pair.a,pair.b,su,sv),poly=document.createElementNS(ns,'polygon');poly.setAttribute('points',g.points.map(p=>p.join(',')).join(' '));poly.setAttribute('fill','#cac3bd');poly.setAttribute('stroke','none');parent.appendChild(poly);
+      const edge=document.createElementNS(ns,'path'),d='M '+[g.A,...bezierPoints21(g.A,g.P1,g.P2,g.B,12).slice(1)].map(p=>p.join(' ')).join(' L ');
+      edge.setAttribute('d',d);edge.setAttribute('fill','none');edge.setAttribute('stroke','#8d8884');edge.setAttribute('stroke-width','.18');parent.appendChild(edge);
+    }
+  }
+  function drawJunctionCornerBands21(parent,nodes){
+    for(const node of nodes)for(const pair of junctionAxesPair21(node))for(const su of [-1,1])for(const sv of [-1,1])for(const type of ['green','bike','walk']){
+      const arc=junctionBandArc21(node,pair.a,pair.b,su,sv,type);if(!arc)continue;
+      const edge=type==='green'?'#596944':type==='bike'?'#805361':'#817b76',d='M '+arc.points.map(p=>p.join(' ')).join(' L ');
+      const outline=document.createElementNS(ns,'path');outline.setAttribute('d',d);outline.setAttribute('fill','none');outline.setAttribute('stroke',edge);outline.setAttribute('stroke-width',arc.w+.32);outline.setAttribute('stroke-linecap','round');outline.setAttribute('stroke-linejoin','round');parent.appendChild(outline);
+      const path=document.createElementNS(ns,'path');path.setAttribute('d',d);path.setAttribute('fill','none');path.setAttribute('stroke',roadStripColor(type));path.setAttribute('stroke-width',arc.w);path.setAttribute('stroke-linecap','round');path.setAttribute('stroke-linejoin','round');parent.appendChild(path);
+    }
+  }
+  function drawJunctionMarkings21(parent,nodes){
+    const stripeN=9,stripeW=.45,pitch=.8,halfZebra=((stripeN-1)*pitch+stripeW)/2;
+    for(const node of nodes)for(const pair of junctionAxesPair21(node))for(const axis of [pair.a,pair.b]){
+      const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(axis.road.road?.laneWidth)||6)/2+1.5;
+      for(const c of junctionApproaches21(node,axis,crossD,halfZebra)){
+        const u=c.axis,n=[-u[1],u[0]],span=Math.max(4,c.laneW-.35);
+        for(let k=0;k<stripeN;k++){const along=(k-(stripeN-1)/2)*pitch,cx=c.center[0]+u[0]*along,cy=c.center[1]+u[1]*along,hx=u[0]*stripeW/2,hy=u[1]*stripeW/2,wx=n[0]*span/2,wy=n[1]*span/2,poly=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],r=document.createElementNS(ns,'polygon');r.setAttribute('points',poly.map(p=>p.join(',')).join(' '));r.setAttribute('fill','#fff');parent.appendChild(r)}
+      }
+    }
+  }
+  function drawParking21(parent,o,sideName){const pts=o.roadPoints||[],sign=sideName==='left'?-1:1,defs=bandDefs21(o,sideName),park=defs.find(d=>d.item.type==='parking');if(!park)return;for(let si=0;si<pts.length-1;si++){const a=pts[si],b=pts[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.1)continue;const nx=-dy/len*sign,ny=dx/len*sign,key=park.item.key,layout=window.roadParkingLayoutOnSegment(o,si,key),depth=key==='perp'?5.3:2.5,along=key==='perp'?2.5:6,ux=dx/len,uy=dy/len;const drawRect=(d,w,cls,fill,stroke)=>{const tt=d/len,cx=a[0]+dx*tt+nx*park.mid,cy=a[1]+dy*tt+ny*park.mid,hx=ux*w/2,hy=uy*w/2,wx=nx*depth/2,wy=ny*depth/2,rect=[[cx-hx-wx,cy-hy-wy],[cx+hx-wx,cy+hy-wy],[cx+hx+wx,cy+hy+wy],[cx-hx+wx,cy-hy+wy]],rp=document.createElementNS(ns,'polygon');rp.setAttribute('points',rect.map(q=>q.join(',')).join(' '));rp.setAttribute('class',cls);if(fill)rp.setAttribute('fill',fill);if(stroke)rp.setAttribute('stroke',stroke);parent.appendChild(rp)};for(const d of layout.centers)drawRect(d,along,'roadParkingSlot');for(const gap of layout.greenGaps)drawRect((gap[0]+gap[1])/2,gap[1]-gap[0],'roadParkingGreenGap','#b0c17d','#727e51')}}
+    function drawLane21(parent,o){const p=document.createElementNS(ns,'path');p.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));p.setAttribute('fill','none');p.setAttribute('stroke','#cac3bd');p.setAttribute('stroke-width',Number(o.road?.laneWidth)||6);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');p.dataset.id=o.id;parent.appendChild(p)}
+  function drawMarkings21(parent,o,junctionPoints){
+    const R=Number(o.road?.radius)||6,laneW=Number(o.road?.laneWidth)||6,world=roundedSample21(o.roadPoints||[],R,6),ints=junctionPoints===undefined?roadIntersections(o).map(p=>[p[0]-o.x,p[1]-o.y]):junctionPoints.map(p=>[p[0]-o.x,p[1]-o.y]),total=polylineLength21(world),gap=R+laneW/2+2,ranges=[];
+    for(const p of ints){const n=nearestPolylineDistance21(world,p);if(n.dist<1)ranges.push([Math.max(0,n.s-gap),Math.min(total,n.s+gap)])}
+    const blocked=(a,b)=>ranges.some(g=>a<g[1]&&b>g[0]),pathFrom=pts=>pts.length<2?'':'M '+pts.map(p=>p.join(' ')).join(' L ');
+    for(let d=0;d<total;d+=8){const end=Math.min(total,d+3.2);if(!blocked(d,end)){const pts=slicePolyline21(world,d,end),p=document.createElementNS(ns,'path');p.setAttribute('d',pathFrom(pts));p.setAttribute('fill','none');p.setAttribute('stroke','#f7fafb');p.setAttribute('stroke-width','.16');p.setAttribute('stroke-linecap','butt');parent.appendChild(p)}else{let cur=d;const cuts=ranges.filter(g=>g[0]<end&&g[1]>d).sort((a,b)=>a[0]-b[0]);for(const g of cuts){if(g[0]>cur){const pts=slicePolyline21(world,cur,Math.min(end,g[0])),p=document.createElementNS(ns,'path');p.setAttribute('d',pathFrom(pts));p.setAttribute('fill','none');p.setAttribute('stroke','#f7fafb');p.setAttribute('stroke-width','.16');parent.appendChild(p)}cur=Math.max(cur,g[1])}if(cur<end){const pts=slicePolyline21(world,cur,end),p=document.createElementNS(ns,'path');p.setAttribute('d',pathFrom(pts));p.setAttribute('fill','none');p.setAttribute('stroke','#f7fafb');p.setAttribute('stroke-width','.16');parent.appendChild(p)}}}
+  }
   function attachRoadInteraction21(parent,o){const hit=document.createElementNS(ns,'path');hit.setAttribute('d',roadRoundedPathD(o.roadPoints||[],Number(o.road?.radius)||6));hit.setAttribute('fill','none');hit.setAttribute('stroke','rgba(0,0,0,0)');hit.setAttribute('stroke-width',Math.max(12,roadTotalWidth(o)));hit.style.pointerEvents='stroke';hit.dataset.id=o.id;hit.addEventListener('pointerdown',startDrag);hit.addEventListener('click',e=>{if(siteDraw||underlayCalib||rulerMode||roadDraw)return;e.stopPropagation();state.selected=o.id;state.calloutId=o.id;state.calloutPos={x:e.clientX,y:e.clientY};state.calloutOffset=null;loadRoadConfigToUI(o);renderAll()});parent.appendChild(hit);const st=roadParkingStats(o),pts=o.roadPoints||[],mid=pts[Math.floor((pts.length-1)/2)]||[0,0],tx=document.createElementNS(ns,'text');tx.setAttribute('x',mid[0]);tx.setAttribute('y',mid[1]-8);tx.setAttribute('text-anchor','middle');tx.setAttribute('class','roadLabel');tx.textContent=`Проезд ${fmt(o.road?.laneWidth||6,1)} м · ${fmt(st.total)} ММ · L ${fmt(st.length,1)} м`;parent.appendChild(tx);if(o.id===state.selected)pts.forEach((p,i)=>{const h=document.createElementNS(ns,'circle');h.setAttribute('cx',p[0]);h.setAttribute('cy',p[1]);h.setAttribute('r',4);h.setAttribute('class','roadNode');h.addEventListener('pointerdown',e=>startRoadVertexDrag(e,o.id,i));parent.appendChild(h)})}
   function renderRoadNetwork21(roads){
-    const groups={green:document.createElementNS(ns,'g'),parking:document.createElementNS(ns,'g'),walk:document.createElementNS(ns,'g'),lane:document.createElementNS(ns,'g'),mark:document.createElementNS(ns,'g'),ctrl:document.createElementNS(ns,'g')};
+    const groups={green:document.createElementNS(ns,'g'),parking:document.createElementNS(ns,'g'),walk:document.createElementNS(ns,'g'),lane:document.createElementNS(ns,'g'),curb:document.createElementNS(ns,'g'),mark:document.createElementNS(ns,'g'),ctrl:document.createElementNS(ns,'g')};
     Object.values(groups).forEach(g=>objLayer.appendChild(g));
-    for(const o of roads){syncRoadBounds(o);const baseTransform=`translate(${o.x} ${o.y})`;for(const [name,g] of Object.entries(groups))g.removeAttribute('transform');const gg={};for(const k of Object.keys(groups)){gg[k]=document.createElementNS(ns,'g');gg[k].setAttribute('transform',baseTransform);groups[k].appendChild(gg[k])}for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);defs.filter(d=>d.item.type==='green').forEach(d=>drawBand21(gg.green,o,d));drawParking21(gg.parking,o,sideName);defs.filter(d=>d.item.type==='bike'||d.item.type==='walk').forEach(d=>drawBand21(gg.walk,o,d))}drawLane21(gg.lane,o);drawMarkings21(gg.mark,o);attachRoadInteraction21(gg.ctrl,o)}
+    const junctions=roadJunctionNodes21(roads),byRoad=new Map();
+    for(const node of junctions)for(const axis of node.axes)for(const arm of axis.arms){if(!byRoad.has(arm.road.id))byRoad.set(arm.road.id,[]);byRoad.get(arm.road.id).push(node.p)}
+    for(const o of roads){syncRoadBounds(o);const baseTransform=`translate(${o.x} ${o.y})`,gg={};for(const [name,g] of Object.entries(groups)){gg[name]=document.createElementNS(ns,'g');gg[name].setAttribute('transform',baseTransform);groups[name].appendChild(gg[name])}for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);defs.filter(d=>d.item.type==='green').forEach(d=>drawBand21(gg.green,o,d));drawParking21(gg.parking,o,sideName);defs.filter(d=>d.item.type==='bike'||d.item.type==='walk').forEach(d=>drawBand21(gg.walk,o,d))}drawLane21(gg.lane,o);drawMarkings21(gg.mark,o,byRoad.get(o.id)||[]);attachRoadInteraction21(gg.ctrl,o)}
+    drawJunctionAsphalt21(groups.lane,junctions);drawJunctionCornerBands21(groups.curb,junctions);drawJunctionMarkings21(groups.mark,junctions);
   }
 
   // Road preview during creation, same visual hierarchy for the draft.
@@ -1709,20 +1838,41 @@ const roadParkingCentersOnSegment=window.roadParkingCentersOnSegment=(o,si,key)=
   function addPathOutline21(t,pts,width,y,objId){if(!renderPrefs21.outline||pts.length<2)return;const left=offsetPolyline21(pts,-width/2),right=offsetPolyline21(pts,width/2);for(const edge of [left,right])for(let i=1;i<edge.length;i++)addFlatLine21(t,edge[i-1],edge[i],y,objId);if(left.length&&right.length){addFlatLine21(t,left[0],right[0],y,objId);addFlatLine21(t,left[left.length-1],right[right.length-1],y,objId)}}
   function addRectOutline21(t,cx,cy,w,d,rot,y,objId){if(!renderPrefs21.outline)return;const c=Math.cos(rot),s=Math.sin(rot),world=(x,z)=>[cx+x*c+z*s,cy-x*s+z*c],p=[world(-w/2,-d/2),world(w/2,-d/2),world(w/2,d/2),world(-w/2,d/2)];for(let i=0;i<4;i++)addFlatLine21(t,p[i],p[(i+1)%4],y,objId)}
   function addPathStrip3D21(t,pts,width,color,y,h,objId){for(let i=1;i<pts.length;i++)addSeg3D21(t,pts[i-1],pts[i],width,color,y,h,objId);for(let i=1;i<pts.length-1;i++)addRoundJoin3D21(t,pts[i],width,color,y,h,objId,12);addPathOutline21(t,pts,width,y+h+.012,objId)}
+  function addRoadCenterMarkings3D21(t,o,nodes){
+    const R=Number(o.road?.radius)||6,laneW=Number(o.road?.laneWidth)||6,pts=roundedSample21(roadWorldPoints(o),R,6),total=polylineLength21(pts),gap=R+laneW/2+2,ranges=[];
+    for(const n of nodes){if(!n.axes.some(a=>a.arms.some(x=>x.road.id===o.id)))continue;const q=nearestPolylineDistance21(pts,n.p);if(q.dist<1)ranges.push([Math.max(0,q.s-gap),Math.min(total,q.s+gap)])}
+    for(let d=0;d<total;d+=8){const end=Math.min(total,d+3.2),cuts=ranges.filter(g=>g[0]<end&&g[1]>d).sort((a,b)=>a[0]-b[0]);let cur=d;for(const g of cuts){if(g[0]>cur)for(let s=cur;s<Math.min(end,g[0]);s+=.9){const e=Math.min(Math.min(end,g[0]),s+.9);addSeg3D21(t,pointAtDistance21(pts,s),pointAtDistance21(pts,e),.14,0xffffff,(Number(o.roadLevel)||0)+.218,.018,o.id)}cur=Math.max(cur,g[1])}if(cur<end)for(let s=cur;s<end;s+=.9){const e=Math.min(end,s+.9);addSeg3D21(t,pointAtDistance21(pts,s),pointAtDistance21(pts,e),.14,0xffffff,(Number(o.roadLevel)||0)+.218,.018,o.id)}}
+  }
+  function addRoadJunctions3D21(t,roads){
+    const nodes=roadJunctionNodes21(roads);
+    for(const node of nodes)for(const pair of junctionAxesPair21(node)){
+      const base=Math.max(Number(pair.a.road.roadLevel)||0,Number(pair.b.road.roadLevel)||0);
+      if(Math.abs((Number(pair.a.road.roadLevel)||0)-(Number(pair.b.road.roadLevel)||0))>.15)continue;
+      for(const su of [-1,1])for(const sv of [-1,1]){
+        const g=junctionCorner21(node,pair.a,pair.b,su,sv),shape=new THREE.Shape(),to2=p=>[p[0],-p[1]];
+        shape.moveTo(...to2(g.corner));shape.lineTo(...to2(g.A));shape.bezierCurveTo(...to2(g.P1),...to2(g.P2),...to2(g.B));shape.lineTo(...to2(g.corner));shape.closePath();
+        const geo=new THREE.ShapeGeometry(shape),mat=new THREE.MeshBasicMaterial({color:srgb21(0xcac3bd),side:THREE.DoubleSide,toneMapped:false}),mesh=new THREE.Mesh(geo,mat);mesh.rotation.x=-Math.PI/2;mesh.position.y=base+.216;mesh.userData.objId=pair.a.road.id;t.group.add(mesh);
+        if(renderPrefs21.outline){const arc=bezierPoints21(g.A,g.P1,g.P2,g.B,16);for(let i=1;i<arc.length;i++)addFlatLine21(t,arc[i-1],arc[i],base+.229,pair.a.road.id)}
+      }
+      for(const su of [-1,1])for(const sv of [-1,1])for(const type of ['green','bike','walk']){
+        const arc=junctionBandArc21(node,pair.a,pair.b,su,sv,type);if(!arc)continue;
+        const color=type==='green'?0xb0c17d:0xbb989e,y=type==='green'?base+.015:base+.035,h=type==='green'?.07:type==='walk'?.12:.09;
+        addPathStrip3D21(t,arc.points,arc.w,color,y,h,pair.a.road.id);
+      }
+      const stripeN=9,stripeW=.45,pitch=.8,halfZebra=((stripeN-1)*pitch+stripeW)/2;
+      for(const axis of [pair.a,pair.b]){const other=axis===pair.a?pair.b:pair.a,crossD=Math.min(Number(axis.road.road?.radius)||6,Number(other.road.road?.radius)||6)+(Number(axis.road.road?.laneWidth)||6)/2+1.5;for(const c of junctionApproaches21(node,axis,crossD,halfZebra)){
+        const u=c.axis,n=[-u[1],u[0]],span=Math.max(4,c.laneW-.35),markY=base+.221;
+        for(let k=0;k<stripeN;k++){const along=(k-(stripeN-1)/2)*pitch,cx=c.center[0]+u[0]*along,cy=c.center[1]+u[1]*along,half=stripeW/2,a=[cx-u[0]*half,cy-u[1]*half],b=[cx+u[0]*half,cy+u[1]*half];addSeg3D21(t,a,b,span,0xffffff,markY,.02,c.road.id)}
+      }}
+    }
+    for(const o of roads)addRoadCenterMarkings3D21(t,o,nodes);
+  }
   function addRoad3D21(t,o,base){
     const cfg=o.road||roadConfigDefault(),laneW=Number(cfg.laneWidth)||6,R=Number(cfg.radius)||6,world=roadWorldPoints(o),center=roundedSample21(world,R,6);
-    // priority 3: green (lowest)
     for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);for(const d of defs.filter(x=>x.item.type==='green')){const off=offsetPolyline21(center,d.sign*d.mid);addPathStrip3D21(t,off,d.item.w,0xb0c17d,base+.015,.07,o.id)}}
-    // Keep a 5 m parking-free interval from every crossing and add a 2.5 m green break after every ten bays.
     for(const sideName of ['left','right']){const sign=sideName==='left'?-1:1,defs=bandDefs21(o,sideName),park=defs.find(d=>d.item.type==='parking');if(!park)continue;for(let si=0;si<world.length-1;si++){const a=world[si],b=world[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<.1)continue;const nx=-dy/len*sign,ny=dx/len*sign,key=park.item.key,layout=window.roadParkingLayoutOnSegment(o,si,key),depth=key==='perp'?5.3:2.5,along=key==='perp'?2.5:6,rot=-Math.atan2(dy,dx),place=(d,w,color)=>{const tt=d/len,cx=a[0]+dx*tt+nx*park.mid,cy=a[1]+dy*tt+ny*park.mid,geo=new THREE.BoxGeometry(w,.09,depth),mat=new THREE.MeshBasicMaterial({color:srgb21(color),toneMapped:false}),m=new THREE.Mesh(geo,mat);m.position.set(cx,base+.055,cy);m.rotation.y=rot;m.userData.objId=o.id;t.group.add(m);addRectOutline21(t,cx,cy,w,depth,rot,base+.112,o.id)};for(const d of layout.centers)place(d,along,0xcac3bd);for(const gap of layout.greenGaps)place((gap[0]+gap[1])/2,gap[1]-gap[0],0xb0c17d)}}
-    // priority 2: bike + sidewalk
     for(const sideName of ['left','right']){const defs=bandDefs21(o,sideName);for(const d of defs.filter(x=>x.item.type==='bike'||x.item.type==='walk')){const off=offsetPolyline21(center,d.sign*d.mid);addPathStrip3D21(t,off,d.item.w,0xbb989e,base+.035,d.item.type==='walk'?.12:.09,o.id)}}
-    // priority 1: roadway and rounded intersection areas on top
     addPathStrip3D21(t,center,laneW,0xcac3bd,base+.065,.15,o.id);
-    for(const ip of roadIntersections(o)){const radius=R+laneW/2,m=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,.15,32),new THREE.MeshBasicMaterial({color:srgb21(0xcac3bd),toneMapped:false}));m.position.set(ip[0],base+.14,ip[1]);m.userData.objId=o.id;t.group.add(m);if(renderPrefs21.outline){const w=.03+.025*renderPrefs21.outlineThickness,ring=new THREE.Mesh(new THREE.RingGeometry(Math.max(.02,radius-w/2),radius+w/2,48),new THREE.MeshBasicMaterial({color:srgb21(0x66615e),side:THREE.DoubleSide,toneMapped:false}));ring.rotation.x=-Math.PI/2;ring.position.set(ip[0],base+.222,ip[1]);ring.userData.objId=o.id;t.group.add(ring)}}
-    // center line and zebra crossings
-    for(let i=1;i<center.length;i++)addSeg3D21(t,center[i-1],center[i],.14,0xffffff,base+.218,.018,o.id);
-    const locInts=roadIntersections(o);for(let si=0;si<world.length-1;si++){const a=world[si],b=world[si+1],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy);if(len<5)continue;const ux=dx/len,uy=dy/len;for(const ip of locInts){const q=segProject21(ip,a,b);if(q.t<0||q.t>1||q.dist>.8)continue;const d=q.t*len+(q.t<.5?3.2:-3.2);for(let k=-2;k<=2;k++){const s=d+k*.7;if(s<1||s>len-1)continue;const cx=a[0]+ux*s,cy=a[1]+uy*s;addSeg3D21(t,[cx-ux*.17,cy-uy*.17],[cx+ux*.17,cy+uy*.17],laneW+.8,0xffffff,base+.221,.02,o.id)}}}
   }
 
   // ---- New renderer preset exactly matching agreed values ----
@@ -1731,7 +1881,7 @@ const roadParkingCentersOnSegment=window.roadParkingCentersOnSegment=(o,si,key)=
     const container=$('view3d'),renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(window.devicePixelRatio||1);renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.78;container.innerHTML='';container.appendChild(renderer.domElement);const scene=new THREE.Scene();scene.background=new THREE.Color(0xe7eff1);const camera=new THREE.PerspectiveCamera(45,1,1,8000),group=new THREE.Group();scene.add(group);scene.add(new THREE.HemisphereLight(0xffffff,0x66757c,.55));scene.add(new THREE.AmbientLight(0xffffff,.18));const dir=new THREE.DirectionalLight(0xffffff,1.05);dir.position.set(300,600,200);scene.add(dir);let target={x:0,y:0,z:0},radius=400,theta=Math.PI/4,phi=Math.PI/3.2,dragging=false,moved=false,lastX=0,lastY=0,dragMode='orbit';const updateCamera=()=>{camera.position.set(target.x+radius*Math.sin(phi)*Math.sin(theta),target.y+radius*Math.cos(phi),target.z+radius*Math.sin(phi)*Math.cos(theta));camera.lookAt(target.x,target.y,target.z)},raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();const pickAt=(x,y)=>{const r=container.getBoundingClientRect();ndc.x=((x-r.left)/r.width)*2-1;ndc.y=-((y-r.top)/r.height)*2+1;raycaster.setFromCamera(ndc,camera);const hits=raycaster.intersectObjects(group.children.filter(m=>m.userData&&m.userData.objId),true);if(hits.length){const hitId=hits[0].object.userData.objId;if(state.objects.some(o=>o.id===hitId)){state.selected=hitId;state.calloutId=hitId;state.calloutPos={x,y};state.calloutOffset=null;renderAll()}}};container.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==1)return;dragging=true;moved=false;lastX=e.clientX;lastY=e.clientY;dragMode=e.button===1?'pan':'orbit';e.preventDefault()});window.addEventListener('pointerup',e=>{if(dragging&&!moved&&dragMode==='orbit')pickAt(e.clientX,e.clientY);dragging=false});window.addEventListener('pointermove',e=>{if(!dragging)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;lastX=e.clientX;lastY=e.clientY;if(dragMode==='pan'){const sc=radius*.0018,right={x:Math.cos(theta),z:-Math.sin(theta)},fwd={x:Math.sin(theta),z:Math.cos(theta)};target.x+=(-dx*right.x+dy*fwd.x)*sc;target.z+=(-dx*right.z+dy*fwd.z)*sc}else{theta-=dx*.008;phi=Math.min(Math.PI/2-.02,Math.max(.15,phi-dy*.008))}updateCamera();render()});container.addEventListener('wheel',e=>{e.preventDefault();radius=Math.min(4000,Math.max(40,radius*(1+e.deltaY*.001)));updateCamera();render()},{passive:false});container.addEventListener('auxclick',e=>e.preventDefault());const resize=()=>{const w=container.clientWidth||1,h=container.clientHeight||1;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();applyGfxFilter21(false);render()},render=()=>renderer.render(scene,camera);window.addEventListener('resize',resize);three3d={renderer,scene,camera,group,resize,render,setTarget:(x,y,z,r)=>{target={x,y,z};radius=r;updateCamera()}};updateCamera();applyGfxFilter21(false);return three3d;
   };
   rebuild3D=function(){
-    if(typeof THREE==='undefined'){$('view3d').innerHTML='<div class="threeHint">3D-библиотека не загрузилась. 2D-режим продолжает работать.</div>';return}const t=ensure3D();if(window.disposeScene43)window.disposeScene43(t.group);else while(t.group.children.length)t.group.remove(t.group.children[0]);const floorH=Number($('floorHeight').value)||3,ext=sceneExtent(),ground=new THREE.Mesh(new THREE.PlaneGeometry(ext.w,ext.h),new THREE.MeshBasicMaterial({color:srgb21(0xf2f5ec),side:THREE.DoubleSide,toneMapped:false}));ground.rotation.x=-Math.PI/2;ground.position.set(ext.cx,-.02,ext.cy);t.group.add(ground);const ordered=[...state.objects].sort((a,b)=>modelLayer(a)-modelLayer(b));for(const o of ordered){if(!isVisible(o))continue;if(o.type==='ROAD_PATH'){addRoad3D21(t,o,Number(o.roadLevel)||0);continue}if(o.type==='RAMP'){addRamp3D21(t,o,rampBaseElevation21(o,floorH));continue}ensurePolygon(o);const height=obj3DHeight(o,floorH),base=objBaseElevation(o,floorH),proto=LIB[o.type]||{fill:'#d8d8d8'};if(o.kind==='building'){addBuilding21(t,o,base,height,floorH);continue}addVolume21(t,o,base,height,o.fill||proto.fill||'#d8d8d8')}if(roadDraw&&roadDraw.points?.length>1)addRoad3D21(t,{id:'draft-road',type:'ROAD_PATH',kind:'road',x:0,y:0,roadPoints:deep(roadDraw.points),road:deep(currentRoadConfig()),roadLevel:0},0);if(state.showSun){const dateStr=$('sunDate').value||'2026-03-22',tm=$('sunTime').value||'12:00',hr=Number(tm.split(':')[0]),d=new Date(dateStr+'T00:00:00Z');d.setUTCHours(hr-7);for(const o of state.objects.filter(x=>x.kind==='building'&&isVisible(x))){const poly=shadowPolygon(o,d);if(poly?.length>=3)t.group.add(shadowMeshFor(poly))}}t.resize();applyGfxFilter21(false);
+    if(typeof THREE==='undefined'){$('view3d').innerHTML='<div class="threeHint">3D-библиотека не загрузилась. 2D-режим продолжает работать.</div>';return}const t=ensure3D();if(window.disposeScene43)window.disposeScene43(t.group);else while(t.group.children.length)t.group.remove(t.group.children[0]);const floorH=Number($('floorHeight').value)||3,ext=sceneExtent(),ground=new THREE.Mesh(new THREE.PlaneGeometry(ext.w,ext.h),new THREE.MeshBasicMaterial({color:srgb21(0xf2f5ec),side:THREE.DoubleSide,toneMapped:false}));ground.rotation.x=-Math.PI/2;ground.position.set(ext.cx,-.02,ext.cy);t.group.add(ground);const ordered=[...state.objects].sort((a,b)=>modelLayer(a)-modelLayer(b));for(const o of ordered){if(!isVisible(o))continue;if(o.type==='ROAD_PATH'){addRoad3D21(t,o,Number(o.roadLevel)||0);continue}if(o.type==='RAMP'){addRamp3D21(t,o,rampBaseElevation21(o,floorH));continue}ensurePolygon(o);const height=obj3DHeight(o,floorH),base=objBaseElevation(o,floorH),proto=LIB[o.type]||{fill:'#d8d8d8'};if(o.kind==='building'){addBuilding21(t,o,base,height,floorH);continue}addVolume21(t,o,base,height,o.fill||proto.fill||'#d8d8d8')}addRoadJunctions3D21(t,ordered.filter(o=>o.type==='ROAD_PATH'&&isVisible(o)));if(roadDraw&&roadDraw.points?.length>1)addRoad3D21(t,{id:'draft-road',type:'ROAD_PATH',kind:'road',x:0,y:0,roadPoints:deep(roadDraw.points),road:deep(currentRoadConfig()),roadLevel:0},0);if(state.showSun){const dateStr=$('sunDate').value||'2026-03-22',tm=$('sunTime').value||'12:00',hr=Number(tm.split(':')[0]),d=new Date(dateStr+'T00:00:00Z');d.setUTCHours(hr-7);for(const o of state.objects.filter(x=>x.kind==='building'&&isVisible(x))){const poly=shadowPolygon(o,d);if(poly?.length>=3)t.group.add(shadowMeshFor(poly))}}t.resize();applyGfxFilter21(false);
   };
 
   // Global 2D road passes guarantee priority at intersections across all separate road objects.
