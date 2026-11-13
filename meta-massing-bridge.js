@@ -34,6 +34,71 @@ syncBlockMetrics=function(o){
  }
  return previousSync(o);
 };
+// Building-level TEP: keep the configurator's exact typical-floor metrics and apply the ground-floor rule once.
+function metaBlockTypicalCount(o){
+ var f=o.metaFloor||{},exact=Math.floor(Number(f.apartmentsPerFloor)||0);
+ if(exact>0)return exact;
+ var saved=Math.round(Number(o.blockCalc&&o.blockCalc.nKv)||0);
+ if(saved>0)return saved;
+ var sale=Math.max(0,Number(o.saleFloor)||0),avg=Number(o.avgApt)||50;
+ return avg>0?Math.max(0,Math.round(sale/avg)):0;
+}
+function metaBlockAverageApartmentArea(o){
+ var f=o.metaFloor||{},n=metaBlockTypicalCount(o),sale=Math.max(0,Number(o.saleFloor)||0);
+ return Number(f.averageApartmentArea_m2)||(n>0?sale/n:Number(o.avgApt)||50);
+}
+var metaPreviousBuildingSale=buildingSale;
+buildingSale=function(o){
+ if(!o||o.kind!=="building")return 0;
+ if(o.type!=="BLOK")return metaPreviousBuildingSale(o);
+ var floors=Math.max(0,Math.floor(Number(o.floors)||0)),sale=Math.max(0,Number(o.saleFloor)||0);
+ if(!floors)return 0;
+ if(o.groundFloorUse==="commercial")return Math.max(0,floors-1)*sale;
+ return Math.max(0,floors-1)*sale+Math.max(0,sale-metaBlockAverageApartmentArea(o)-50);
+};
+var metaPreviousBuildingCommercial=buildingCommercial;
+buildingCommercial=function(o){
+ if(o&&o.kind==="building"&&o.type==="BLOK"&&o.groundFloorUse==="commercial")return Math.max(0,Number(o.saleFloor||0)-60);
+ return metaPreviousBuildingCommercial(o);
+};
+function buildingApartmentCount(o){
+ if(!o||o.kind!=="building")return 0;
+ if(o.type!=="BLOK")return Math.floor(buildingSale(o)/(Number(o.avgApt)||product().avg));
+ var floors=Math.max(0,Math.floor(Number(o.floors)||0));
+ if(!floors)return 0;
+ var typical=metaBlockTypicalCount(o);
+ return Math.max(0,floors-1)*typical+(o.groundFloorUse==="commercial"?0:Math.max(0,typical-1));
+}
+var metaPreviousMetrics=metrics;
+metrics=function(){
+ var result=metaPreviousMetrics(),buildings=state.objects.filter(function(o){return o.kind==="building";});
+ result.apts=buildings.reduce(function(total,o){return total+buildingApartmentCount(o);},0);
+ return result;
+};
+var metaPreviousRefreshPanel=refreshPanel;
+refreshPanel=function(){
+ metaPreviousRefreshPanel();
+ var s=scope(),apts=s.objects.reduce(function(total,o){return total+buildingApartmentCount(o);},0);
+ var apartmentArea=s.objects.reduce(function(total,o){return total+buildingSale(o);},0);
+ var commercialArea=s.objects.reduce(function(total,o){return total+buildingCommercial(o);},0);
+ var stat=by("scopeMetrics38");
+ if(stat)stat.textContent=s.title+(s.objects.length?" · квартирная площадь "+fmt(apartmentArea)+" м² · коммерция "+fmt(commercialArea)+" м² · квартир ≈ "+fmt(apts):"");
+ var labels=localTargets.querySelectorAll("label.frow");
+ labels.forEach(function(label){
+  var input=label.querySelector("input"),factText=label.nextElementSibling;
+  if(!input||!factText||input.type!=="number")return;
+  var fact=input.step==="1"?apts:apartmentArea;
+  if(fact===null)return;
+  var target=Number(input.value);
+  factText.textContent="Факт: "+fmt(fact)+(input.step==="1"?" кв.":" м²")+(target>0?" · Осталось: "+fmt(Math.max(0,target-fact))+(input.step==="1"?" кв.":" м²"):" · Цель не задана");
+ });
+};
+var metaPreviousCalloutStatsHtml=calloutStatsHtml;
+calloutStatsHtml=function(o){
+ if(!o||o.kind!=="building")return metaPreviousCalloutStatsHtml(o);
+ var bc=o.blockCalc||{},saleApts=buildingSale(o),saleCommercial=buildingCommercial(o);
+ return "Площадь пятна: <b>"+fmt(bc.footprint!=null?bc.footprint:objArea(o))+" м²</b> · КЭП типового этажа: <b>"+fmt(o.kep,4)+"</b><br>S прод. квартиры (на дом): <b>"+fmt(saleApts)+" м²</b><br>Квартир (на дом): <b>"+fmt(buildingApartmentCount(o))+"</b><br>S прод. коммерция (на дом): <b>"+fmt(saleCommercial)+" м²</b>";
+};
 var previousResizable=isResizable;
 isResizable=function(o){return !(o&&o.metaFixed)&&previousResizable(o);};
 function metaConfigureButtonHtml(){return '<div class="row2" style="margin-top:10px"><button class="btn primary" id="metaConfigureSectionBtn" style="width:100%">Подобрать модули квартир в Конфигураторе →</button></div>';}
@@ -59,6 +124,8 @@ renderInspector=function(){
  var root=document.getElementById("inspector");
  if(!o.metaFixed){
   previousInspector();
+  var legacyTep=root.querySelector("#sectionInspector41 .statusline");
+  if(legacyTep)legacyTep.innerHTML=legacyTep.innerHTML.replace(/Квартир всего:\s*[^<]*/,"Квартир всего: "+buildingApartmentCount(o));
   root.insertAdjacentHTML("beforeend",metaConfigureButtonHtml());
  }else{
   var f=o.metaFloor||{};
@@ -72,9 +139,9 @@ renderInspector=function(){
    '<div class="frow"><label>S МОП / этаж</label><b>'+r(f.mopArea_m2)+' м²</b></div>'+
    '<div class="frow"><label>Площадь по контуру / этаж</label><b>'+r(f.grossArea_m2)+' м²</b></div>'+
    '<div class="frow"><label>S строительная (контур − шахты)</label><b>'+r(f.constructionArea_m2||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0)))+' м²</b></div>'+
-   '<div class="frow"><label>КЭП</label><b>'+r(f.kepPreliminary||f.kep)+'</b></div>'+
+   '<div class="frow"><label>КЭП типового этажа</label><b>'+r(f.kepPreliminary||f.kep)+'</b></div>'+
    '<div class="frow"><label>Этажность</label><input id="metaFixedFloors" type="number" min="1" max="100" step="1" value="'+o.floors+'"></div>'+
-   '<div class="statusline"><b>На здание:</b><br>Квартир: '+r((Number(f.apartmentsPerFloor)||0)*o.floors)+'<br>S квартир: '+r((Number(f.saleArea_m2)||0)*o.floors)+' м²</div>'+
+   '<div class="statusline"><b>На здание:</b><br>Квартир: '+r(buildingApartmentCount(o))+'<br>S квартир: '+r(buildingSale(o))+' м²<br>S коммерции: '+r(buildingCommercial(o))+' м²<br>S строительная: '+r((Number(f.constructionArea_m2)||0)*o.floors)+' м²<br>КЭП жилья на здание: '+r(Number(f.constructionArea_m2)&&o.floors?buildingSale(o)/(Number(f.constructionArea_m2)*o.floors):0)+'</div>'+
    metaConfigureButtonHtml();
   root.querySelector("#fixedTitle").textContent=o.label+" · "+o.id;
   root.querySelector("#metaFixedFloors").onchange=function(){var v=Number(this.value);if(!Number.isInteger(v)||v<1||v>100){this.value=o.floors;return;}checkpoint();o.floors=v;renderAll();later();};
@@ -113,12 +180,13 @@ function importSection(p){
  if(contour&&contour.length<3)contour=null;
  var replaceId=String(p.replaceTargetId||""),target=replaceId?state.objects.find(function(o){return String(o.id)===replaceId;}):null;
  if(replaceId&&(!target||target.kind!=="building"))throw Error("Исходная секция не найдена в Массинге. Передача отменена, план на площадке не изменён.");
- var floorData={apartmentsPerFloor:Number(f.apartmentsPerFloor)||0,saleArea_m2:Number(f.saleArea_m2)||0,averageApartmentArea_m2:Number(f.averageApartmentArea_m2)||(Number(f.apartmentsPerFloor)>0?Number(f.saleArea_m2)/Number(f.apartmentsPerFloor):0),mopArea_m2:Number(f.mopArea_m2)||0,grossArea_m2:Number(f.grossArea_m2)||0,constructionArea_m2:Number(f.constructionArea_m2)||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0)),liftShaftArea_m2:Number(f.liftShaftArea_m2)||0,kep:Number(f.kep)||0,kepPreliminary:Number(f.kepPreliminary)||Number(f.kep)||0,mopId:String(f.mopId||""),mopType:String(f.mopType||""),mopName:String(f.mopName||""),liftCount:Number(f.liftCount)||0,sectionTypeKey:String(p.sourceSection&&p.sourceSection.sectionTypeKey||"")};
+ var floorData={floors:Math.max(1,Math.min(100,Math.floor(Number(f.floors)||Number(target&&target.floors)||Number(p.sourceSection&&p.sourceSection.floors)||18))),apartmentsPerFloor:Number(f.apartmentsPerFloor)||0,saleArea_m2:Number(f.saleArea_m2)||0,averageApartmentArea_m2:Number(f.averageApartmentArea_m2)||(Number(f.apartmentsPerFloor)>0?Number(f.saleArea_m2)/Number(f.apartmentsPerFloor):0),mopArea_m2:Number(f.mopArea_m2)||0,grossArea_m2:Number(f.grossArea_m2)||0,constructionArea_m2:Number(f.constructionArea_m2)||Math.max(0,(Number(f.grossArea_m2)||0)-(Number(f.liftShaftArea_m2)||0)),liftShaftArea_m2:Number(f.liftShaftArea_m2)||0,kep:Number(f.kep)||0,kepPreliminary:Number(f.kepPreliminary)||Number(f.kep)||0,mopId:String(f.mopId||""),mopType:String(f.mopType||""),mopName:String(f.mopName||""),liftCount:Number(f.liftCount)||0,sectionTypeKey:String(p.sourceSection&&p.sourceSection.sectionTypeKey||"")};
  checkpoint();
  var obj;
  if(target){
   target.w=r(w);target.h=r(h);target.shape=contour?"bend":"straight";target.points=contour||defaultPolyPoints(w,h);
   target.metaFixed=true;target.metaImportKey=key;target.metaFloor=floorData;target.metaParts=parts;target.status="RESOLVED";
+  target.floors=floorData.floors;
   target.avgApt=floorData.averageApartmentArea_m2||target.avgApt||50;
   target.label="СЕКЦИЯ · "+(floorData.mopName||floorData.mopType||"КОНФИГУРАТОР");
   if(!target.groundFloorUse)target.groundFloorUse=(p.sourceSection&&p.sourceSection.groundFloorUse)||"residential";
