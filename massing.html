@@ -3941,11 +3941,36 @@ window.quarter37={geometry,create,rebuild,sync,removeSection40};document.title='
 const target=by('tSale').closest('section'),parameters=by('inspector').closest('section');target.querySelector('h3').textContent='Целевые ТЭП';parameters.querySelector('h3').textContent='ТЭП и параметры';
 const globalTargets=document.createElement('details');globalTargets.innerHTML='<summary>Цели всего участка</summary>';target.append(globalTargets);globalTargets.append(target.querySelector('.targetGrid'));
 const localTargets=document.createElement('div');localTargets.id='localTargets38';target.insertBefore(localTargets,globalTargets);
-const insol=document.createElement('section');insol.className='sec';insol.id='insolationSection38';insol.innerHTML='<h3>Инсоляция</h3><div id="selectedSun38" class="statusline"></div>';
+const insol=document.createElement('details');insol.className='sec';insol.id='insolationSection38';insol.open=true;insol.innerHTML='<summary>Инсоляция</summary><div id="selectedSun38" class="statusline"></div>';
 const tool=by('insolFrontTool25'),analysis=by('analysis34');insol.append(tool,analysis);
 const fh=by('floorHeight');if(fh){const row=fh.closest('.frow');if(row)insol.insertBefore(row,tool);}
 const site=by('mSale').closest('section'),siteDetails=document.createElement('details');siteDetails.innerHTML='<summary>ТЭП всего участка</summary>';site.before(siteDetails);siteDetails.append(site);
 right.prepend(target,parameters,insol);
+target.after(siteDetails);
+const insolTool38=by('insolFrontTool25'),controls38=insolTool38?.querySelector('.meta33-controls');
+if(insolTool38){
+  insolTool38.classList.remove('sec');
+  insolTool38.querySelector('h3')?.remove();
+  const allRow38=by('all33')?.closest('label'),legend38=insolTool38.querySelector('.meta33-legend');
+  const floorRow38=fh?.closest('.frow');
+  if(allRow38){
+    allRow38.style.display='flex';allRow38.style.alignItems='center';allRow38.style.gap='8px';allRow38.style.fontWeight='700';allRow38.style.margin='4px 0 8px';
+    const br=allRow38.nextSibling;if(br?.nodeName==='BR')br.remove();
+    const overview38=document.createElement('div');overview38.className='insolOverview38';overview38.appendChild(allRow38);
+    if(legend38)overview38.appendChild(legend38);
+    insol.insertBefore(overview38,floorRow38||insolTool38);
+  }
+  const settingsTitle38=document.createElement('h4');settingsTitle38.className='insolSettingsTitle38';settingsTitle38.textContent='Параметры местности';
+  const firstSetting38=by('latitude33')?.closest('.frow');
+  if(firstSetting38)firstSetting38.before(settingsTitle38);
+  by('calculate33')?.remove();
+  const show3D38=by('show3D33');if(show3D38){show3D38.textContent='Показать точки и абрис в 3D';show3D38.style.width='100%';}
+}
+const chartSection38=[...right.querySelectorAll('.sec')].find(s=>/Инсоляция · инструмент/.test(s.querySelector('h3')?.textContent||''));
+if(chartSection38){chartSection38.classList.remove('sec');chartSection38.style.cssText='margin-top:12px;padding-top:12px;border-top:1px solid var(--line)';insol.appendChild(chartSection38);}
+const panelOrderStyle38=document.createElement('style');
+panelOrderStyle38.textContent=`#insolationSection38>summary{cursor:pointer;list-style:none;font-size:14px;line-height:1.4;font-weight:600;margin:0;padding:0}#insolationSection38>summary::-webkit-details-marker{display:none}#insolationSection38>summary:after{content:"⌄";float:right;color:#667b82;transition:transform .15s}#insolationSection38:not([open])>summary:after{transform:rotate(-90deg)}#insolationSection38 .insolOverview38{margin:8px 0 12px}#insolationSection38 .insolOverview38 .meta33-legend{margin:8px 0 0}#insolationSection38 .insolSettingsTitle38{font-size:12px;margin:10px 0 6px}#insolationSection38>#insolFrontTool25{padding:0;border:0}#insolationSection38 #analysis34{margin-top:10px}`;
+document.head.appendChild(panelOrderStyle38);
 function scope(){const o=selected();if(!o)return{owner:null,objects:[],title:'Ничего не выбрано'};if(o.qOuter)return{owner:o,objects:state.objects.filter(b=>b.qParent===o.id),title:'Квартал '+o.id};return{owner:o,objects:o.kind==='building'?[o]:[],title:o.qParent?(o.qCorner?'Угловая секция '+(o.qSide+1):'Секция '+(o.qSide+1)+'.'+(o.qIndex+1)):(o.label||o.id)};}
 function refreshPanel(){const s=scope(),a=s.objects.reduce((n,o)=>n+buildingSale(o),0),apts=s.objects.reduce((n,o)=>n+Math.floor(buildingSale(o)/(Number(o.avgApt)||product().avg)),0);
 localTargets.replaceChildren();const title=document.createElement('p');title.textContent=s.title;localTargets.append(title);globalTargets.open=!s.owner;
@@ -4040,7 +4065,7 @@ const rebuild=rebuild3D;rebuild3D=function(){rebuild();buildTraffic();};frame=re
 // The legacy quick shadow-score pass is deterministic for an unchanged scene.
 const score=calcSunScores;let scoreKey='';calcSunScores=function(){const k=JSON.stringify([state.objects.filter(o=>o.kind==='building').map(o=>[o.id,o.x,o.y,o.w,o.h,o.rot,o.points,o.floors,o.groundFloorUse]),state.sun33,document.getElementById('sunDate')?.value,document.getElementById('floorHeight')?.value]);if(k!==scoreKey){score();scoreKey=k;}};
 function cleanHeadings(){document.title='МЕТАРАЙОН';for(const el of document.querySelectorAll('.brand span,.brand strong,.panel h2,.panel h3,.panel h4')){if(el.children.length)continue;el.textContent=el.textContent.replace(/\s*[·—–-]?\s*v\d+(?:\.\d+)*\b/gi,'').trim();}}
-function scaleInsolationGraphics44(){if(typeof three3d==='undefined'||!three3d)return;const front=three3d.group.getObjectByName('front33');front?.traverse(o=>{if(o.userData?.scaledVisual44)return;if(o.geometry?.type==='BoxGeometry')o.scale.set(1,.2,.2);else if(o.geometry?.type==='SphereGeometry')o.scale.setScalar(.05);else return;o.userData.scaledVisual44=true;});const grid=three3d.group.getObjectByName('grid34');grid?.traverse(o=>{if(o.geometry?.type!=='SphereGeometry'||o.userData?.scaledVisual44)return;o.scale.multiplyScalar(.05);o.userData.scaledVisual44=true;if(o.userData?.point34&&typeof THREE!=='undefined'){const pick=new THREE.Mesh(new THREE.SphereGeometry(.45,8,6),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pick.scale.setScalar(20);pick.userData.point34=o.userData.point34;pick.userData.scaledVisual44=true;pick.userData.pointPick44=true;o.add(pick);}});}
+function scaleInsolationGraphics44(){if(typeof three3d==='undefined'||!three3d)return;const front=three3d.group.getObjectByName('front33');front?.traverse(o=>{if(o.userData?.scaledVisual44)return;if(o.geometry?.type==='BoxGeometry')o.scale.set(1,.2,.2);else if(o.geometry?.type==='SphereGeometry')o.scale.setScalar(.25);else return;o.userData.scaledVisual44=true;});const grid=three3d.group.getObjectByName('grid34');grid?.traverse(o=>{if(o.geometry?.type!=='SphereGeometry'||o.userData?.scaledVisual44)return;o.scale.multiplyScalar(.25);o.userData.scaledVisual44=true;if(o.userData?.point34&&typeof THREE!=='undefined'){const pick=new THREE.Mesh(new THREE.SphereGeometry(.45,8,6),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));pick.scale.setScalar(4);pick.userData.point34=o.userData.point34;pick.userData.scaledVisual44=true;pick.userData.pointPick44=true;o.add(pick);}});}
 const render=renderAll;renderAll=function(){render();cleanHeadings();scaleInsolationGraphics44();if(typeof three3d!=='undefined'&&three3d)three3d.render();};cleanHeadings();
 const save=serialize;serialize=function(){const d=save();d.meta.version='0.44';return d;};
 window.traffic43={pathInfo,pointAt,batch,build:buildTraffic,update:updateTraffic,count:()=>cars.length,dispose};
